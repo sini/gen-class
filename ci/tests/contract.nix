@@ -239,6 +239,15 @@ in
       });
       expected = true;
     };
+    test-throws-sharedKeys-not-list = {
+      expr = didThrow (mkCoreRecord {
+        class = cls;
+        projection = "p";
+        sharedKeys = 5;
+        values = { };
+      });
+      expected = true;
+    };
     test-throws-unsorted-sharedKeys = {
       expr = didThrow (mkCoreRecord {
         class = cls;
