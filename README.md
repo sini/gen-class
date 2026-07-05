@@ -158,7 +158,7 @@ compareCounters {                     # the pure half of the two-tier STOP-on-di
 # ⇒ { pass = true; verdicts = [ { counter; expected; actual; delta; pass; } ]; }
 ```
 
-**tier 2 (`applyCoreFixed`)** — inject the injected gen-merge kernel and skip the spine:
+**tier 2 (`applyCoreFixed`)** — drive the injected gen-merge kernel and skip the spine:
 
 ```nix
 let
