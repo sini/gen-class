@@ -9,12 +9,15 @@
 # (documented, not an error). The heterogeneous corpus exercises the presence guard (a blade-only key).
 #
 # NAMING FENCE (spec §0): the public surface never uses `inject`; verbs are mkCore / applyCore* only.
-# `applyCoreFixed` (tier 2, via the injected `merge` kernel) lands in Task 7; `merge` is threaded but
-# unused here (tier-1 works with merge = null).
+#
+# TIER-2 (`applyCoreFixed`) drives the injected gen-merge fixed-input kernel (spec §2.5): it hands the
+# engine a pre-computed core value and the engine SKIPS the discharge/fold/verify spine for that loc
+# (`evalModuleTree { coreShortCircuit = true; }`). merge-independent tier-1 stays usable with
+# merge = null; applyCoreFixed throws a clear error there.
 {
   prelude,
   contract,
-  merge, # tier-2 kernel (Task 7); tier-1 mechanisms below are merge-independent.
+  merge, # tier-2 gen-merge kernel; null ⇒ tier-1 only (applyCoreFixed unavailable, throws clearly).
 }:
 let
   inherit (prelude)
@@ -136,6 +139,47 @@ let
       invariant = divergingKeys == [ ];
       inherit divergingKeys;
     };
+
+  # applyCoreFixed { core; modules; engineArgs ? {}; } -> evalModuleTree result — the TIER-2 path (spec
+  # §2.5). Runs the injected gen-merge kernel with `coreShortCircuit = true` and a `coreModule` that
+  # supplies the core's projection value as a pre-merged `mkCoreValue` marker: where that marker is the
+  # SOLE def at its loc, the engine returns `core.values` directly, skipping the discharge/fold/verify
+  # spine (byte-identical to the full merge by contract — a WRONG core surfaces at gateCore, not here).
+  #
+  # FIRING-CONDITION CONTRACT (spec §2.5; the kernel's own firing scope, lib/modules.nix). The skip
+  # fires ONLY where the core def is the SOLE def at a DECLARED-OPTION LEAF. This fn upholds it by:
+  #   • placing the marker at the WHOLE projection option leaf — never at sub-keys of an attrsOf (those
+  #     ride the plain per-element fold and never short-circuit);
+  #   • declaring that option with NO `default` (a default appends a second def, demoting sole-core to
+  #     fall-through — still byte-identical, but no spine skip);
+  #   • declaring it TYPE-LESS (`merge.mkOption { }`): the core projection loc is coreModule's to define,
+  #     and a member module that legitimately declares the option's real merge-type wins the option
+  #     field-union (coreModule carries no `.type` to clobber it) while the marker stays the sole def.
+  # A member module that ALSO *defines* (not just declares) the core loc is SAFE — the kernel falls
+  # through to the full merge (byte-identical) — but forfeits the spine skip.
+  applyCoreFixed =
+    {
+      core,
+      modules,
+      engineArgs ? { },
+    }:
+    if merge == null then
+      throw "gen-class: applyCoreFixed: the tier-2 fixed-input path requires the injected gen-merge kernel, but `merge` is null. Import gen-class with `merge = <gen-merge>.lib` (README §tier-2); every tier-1 verb works without it."
+    else
+      let
+        path = splitOnDots core.projection;
+        coreModule = {
+          options = setAttrByPath path (merge.mkOption { });
+          config = setAttrByPath path (merge.mkCoreValue { inherit (core) digest values; });
+        };
+      in
+      merge.evalModuleTree (
+        engineArgs
+        // {
+          coreShortCircuit = true;
+          modules = modules ++ [ coreModule ];
+        }
+      );
 in
 {
   inherit
@@ -143,5 +187,6 @@ in
     applyCoreMerge
     applyCoreExtend
     invariantUnder
+    applyCoreFixed
     ;
 }
