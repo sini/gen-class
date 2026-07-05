@@ -6,7 +6,7 @@
 # the gate decides, partition.nix). The gate is a sha256 over canonical toJSON; the CANONICALITY
 # CONTRACT is mkCoreRecord's verbatim (builtins.toJSON emits attrset keys sorted ⇒ the digest is
 # insertion-order-independent and equal iff the values are byte-equal). This API exposes NO gate-free
-# reuse path (spec §7): there is no Merkle-id shortcut and no `...OrThrow` variant — `gateCore` always
+# reuse path (spec §2.4): there is no Merkle-id shortcut and no `...OrThrow` variant — `gateCore` always
 # returns the decision as a RECORD, and the consumer / ci driver hard-fails on `gate == false`.
 #
 # TWO-TIER COUNTER POLICY (the pure half only; the harness — ×N reps, never-average, loud setup-eval
