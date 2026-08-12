@@ -1,6 +1,6 @@
 {
   inputs = {
-    gen.url = "github:sini/gen";
+    gen-harness.url = "github:sini/gen-harness";
     gen-prelude.url = "github:sini/gen-prelude";
     # The tier-2 fixed-input kernel (spec §2.5). gen-merge.lib self-wires its own prelude + gen-types
     # (gen-merge/flake.nix), so the ci consumes `gen-merge.lib` directly — no manual wiring. It enters
@@ -16,7 +16,7 @@
 
   outputs =
     inputs@{
-      gen,
+      gen-harness,
       gen-prelude,
       gen-merge,
       ...
@@ -33,7 +33,7 @@
       };
       nixpkgsLib = import "${inputs.nixpkgs}/lib";
     in
-    gen.lib.mkCi {
+    gen-harness.lib.mkCi {
       inherit inputs;
       name = "gen-class";
       testModules = ./tests;
