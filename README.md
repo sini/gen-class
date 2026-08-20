@@ -204,9 +204,10 @@ skip case and the fall-through case are byte-gated in `ci/tests/apply-fixed.nix`
 ## Scope fences
 
 - **Intra-process only.** Every plane here is *within one eval*. Cross-invocation / cross-eval caching
-  (Plane 2b) is out of scope — the deploy-time 66.7% number is recorded in the hub's `BENCHMARKS.md` (Arm R) and the
-  mechanism is [gen-memo](https://github.com/sini/gen-memo)'s,
-  not here.
+  (Plane 2b) is out of scope — the deploy-time 66.7% number is recorded in the hub's `BENCHMARKS.md`,
+  whose row is labelled *(Arm R, gen-rebuild)* because that is the library it was measured against, at its
+  own pin. The MECHANISM has since moved to [gen-memo](https://github.com/sini/gen-memo), which inherited
+  it when gen-rebuild retired as a library (ADR-0008 §4). Either way, not here.
 - **Projection-only for the merge path.** `applyCoreMerge` / `applyCoreFixed` return the projection
   **subtree**, not a deployable toplevel. Recovering a full toplevel *from* the spine-skipped path is
   **tier 3 (den-hoag)** — a distinct, engine + den-hoag-level capability. `applyCoreExtend` is the only
