@@ -46,6 +46,12 @@
         # The raw kernel — the apply-fixed suite builds engine fixtures (throwing-merge skip proof,
         # plain-values reference modules) directly against it. ci-side value only, never a `lib/` dep.
         genMerge = gen-merge.lib;
+        # `prelude` reaches the suite because `tests/entry.nix` applies the STANDALONE root entry
+        # with explicit arguments — which is what keeps that cell pure, since supplying the formal
+        # means the shim's fetching default is never forced. It is the SAME instance `genClass`
+        # above is built from, so the two sides of that comparison differ in entry point and in
+        # nothing else.
+        prelude = gen-prelude.lib;
       };
     };
 }
