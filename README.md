@@ -52,7 +52,7 @@ dep (gen-prelude, the pure utility base); `merge` is [gen-merge](https://github.
 | [gen-dispatch](https://github.com/sini/gen-dispatch) | Relational rule dispatch STEP (stratified phases, conflict resolution) |
 | [gen-resolve](https://github.com/sini/gen-resolve) | Demand-driven RAG evaluator over scope graphs (attribute schedule + convergence loop) |
 | [gen-class](https://github.com/sini/gen-class) | **This lib** — class-share mechanism (partition / contract / apply / gate), byte-gated, tier-2 fixed-input via gen-merge |
-| [gen-rebuild](https://github.com/sini/gen-rebuild) | Pure-Nix incremental rebuilder (change propagation, AFFECTED set) |
+| [gen-memo](https://github.com/sini/gen-memo) | The incremental plane — decides reuse, never evaluates (change propagation, AFFECTED set) |
 | [gen-vars](https://github.com/sini/gen-vars) | Pure-Nix vars/secrets (den-agnostic) |
 | [gen-flake](https://github.com/sini/gen-flake) | The nixpkgs boundary — compose purely, inject resolved values, build NixOS systems (value-injection) |
 
@@ -79,7 +79,7 @@ three-host fleet bitstream/blade/cortex), each a permanent byte-gated regression
 
 | plane | what it measures | the A1 number (with its scope) | reading |
 |---|---|---|---|
-| **deploy-time incremental** (cross-eval) | recompute a localized change would repeat host-by-host across separate evals | a single-host edit **skips 66.7%** of fleet composition, byte-sound (Arm R, gate floor ≥ 0.60) | large win — where [gen-rebuild](https://github.com/sini/gen-rebuild)'s incremental reuse lands; NOT a from-scratch speedup |
+| **deploy-time incremental** (cross-eval) | recompute a localized change would repeat host-by-host across separate evals | a single-host edit **skips 66.7%** of fleet composition, byte-sound (Arm R, gate floor ≥ 0.60) | large win — where [gen-memo](https://github.com/sini/gen-memo)'s incremental reuse lands; NOT a from-scratch speedup |
 | **in-eval declaration** (shared-process) | is the shared option-declaration tree free to share within one eval? | blade+cortex from one `out` ≈ **1.066×** a single host, not 2× (Arm C keystone) | already free — native Nix thunk memoization shares it; nothing for a framework to add |
 | **in-eval realization** (shared-process) | is host-specific realization free to share within one eval? | a **212-unit (76.3%)** byte-identical `systemd.units` core injects byte-identically; config-merge saves **~1.6%/member** (Task 7b, floor ≥ 0.008) | partially shareable, must be engineered — the den-hoag target |
 
@@ -204,7 +204,8 @@ skip case and the fall-through case are byte-gated in `ci/tests/apply-fixed.nix`
 ## Scope fences
 
 - **Intra-process only.** Every plane here is *within one eval*. Cross-invocation / cross-eval caching
-  (Plane 2b) is out of scope — the deploy-time 66.7% number lives in [gen-rebuild](https://github.com/sini/gen-rebuild),
+  (Plane 2b) is out of scope — the deploy-time 66.7% number is recorded in the hub's `BENCHMARKS.md` (Arm R) and the
+  mechanism is [gen-memo](https://github.com/sini/gen-memo)'s,
   not here.
 - **Projection-only for the merge path.** `applyCoreMerge` / `applyCoreFixed` return the projection
   **subtree**, not a deployable toplevel. Recovering a full toplevel *from* the spine-skipped path is
