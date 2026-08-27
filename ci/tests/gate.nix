@@ -67,6 +67,25 @@ let
     real = corpus.agents.projections."agent-0";
   };
 
+  # ALIEN-CORE TEETH (den-hoag-m1vc): heteroCore (projection "host.opts", 19 h00..h18 keys/values)
+  # supplied as `core` against an HONEST agent identity pair (candidate = real = agent-0's own
+  # projection, no reconstruction at all) — candidateDigest == realDigest trivially, but heteroCore's
+  # sharedKeys never appear in the agent projection, so the supplied core never PARTICIPATED in
+  # producing candidate. Pre-fix this still gated true (digest-only); post-fix it must gate false.
+  alienCoreGate = gateCore {
+    core = heteroCore;
+    candidate = corpus.agents.projections."agent-0";
+    real = corpus.agents.projections."agent-0";
+  };
+  # GREEN TWIN: the HONEST agentCore over the same direct-identity shape (no applyCoreMerge either) —
+  # agent-0's own copy of the shared keys already equals agentCore.values by construction (the oracle's
+  # byte-identical intersection), so the correct core participates and the digest matches ⇒ gate true.
+  honestCoreGate = gateCore {
+    core = agentCore;
+    candidate = corpus.agents.projections."agent-0";
+    real = corpus.agents.projections."agent-0";
+  };
+
   # ── compareCounters fixtures (the two-tier policy's pure half) ──
   # exact: identical ⇒ pass; off-by-one ⇒ fail (same-build determinism, no tolerance).
   exactPass = compareCounters {
@@ -170,6 +189,25 @@ in
     };
     test-gate-teeth-digests-differ = {
       expr = teethGate.candidateDigest != teethGate.realDigest;
+      expected = true;
+    };
+
+    # ALIEN-CORE TEETH: a core from a DIFFERENT class/projection, over an honest digest-equal
+    # candidate/real pair ⇒ gate FALSE (the supplied core never participated) even though the digests
+    # agree (den-hoag-m1vc — this is the case the digest-only comparison missed).
+    test-gate-alien-core-fails = {
+      expr = alienCoreGate.gate;
+      expected = false;
+    };
+    test-gate-alien-core-digests-still-equal = {
+      expr = alienCoreGate.candidateDigest == alienCoreGate.realDigest;
+      expected = true;
+    };
+    # GREEN TWIN: the honest core over the same direct-identity shape still gates true — the fix does
+    # not demand reconstruction via applyCoreMerge, only that the supplied core's values actually match
+    # what's in candidate at its own claimed keys.
+    test-gate-honest-core-direct-identity-passes = {
+      expr = honestCoreGate.gate;
       expected = true;
     };
   };

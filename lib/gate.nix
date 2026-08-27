@@ -42,10 +42,23 @@ let
   # Canonical byte digest — sha256 of sorted-key toJSON (mkCoreRecord's canonicality contract).
   digestOf = v: hashString "sha256" (toJSON v);
 
+  # coreParticipates : Core -> attrs -> bool — every key `core` CLAIMS to share via sharedKeys is
+  # actually present in `candidate` carrying core's own value (toJSON-compared, the project's
+  # structural-equality convention — mkCore's own `toJSON archProj.${k} == toJSON projections.${m}.${k}`).
+  # This is what makes the SUPPLIED core participate in the decision: an ALIEN core (wrong projection,
+  # wrong values) fails here even when candidateDigest happens to equal realDigest for reasons that
+  # have nothing to do with this core (den-hoag-m1vc — the digest-only gate authorised candidate≡real
+  # regardless of the supplied core, weaker than the README's core-applied-candidate reading).
+  coreParticipates =
+    core: candidate:
+    all (k: (candidate ? ${k}) && toJSON candidate.${k} == toJSON core.values.${k}) core.sharedKeys;
+
   # gateCore { core; candidate; real; } -> { gate; candidateDigest; realDigest; coreCount; }. The
-  # hard-fail byte gate: `gate` is true iff the core-applied CANDIDATE is byte-identical to the REAL
-  # member. coreCount = length core.sharedKeys — evidence of how many keys the core CLAIMED to share
-  # (informational; the gate, not the count, is authority). RECORD ONLY, never throws on the outcome.
+  # hard-fail byte gate: `gate` is true iff (a) `candidate` actually carries the SUPPLIED core's values
+  # at every key core claims to share (coreParticipates — the core-applied half) AND (b) the
+  # core-applied CANDIDATE is byte-identical to the REAL member (the digest half). coreCount =
+  # length core.sharedKeys — evidence of how many keys the core CLAIMED to share (informational; the
+  # gate, not the count, is authority). RECORD ONLY, never throws on the outcome.
   gateCore =
     {
       core,
@@ -60,7 +73,7 @@ let
         realDigest = digestOf real;
       in
       {
-        gate = candidateDigest == realDigest;
+        gate = coreParticipates core candidate && candidateDigest == realDigest;
         inherit candidateDigest realDigest;
         coreCount = length core.sharedKeys;
       };
