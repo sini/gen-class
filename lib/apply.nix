@@ -24,11 +24,11 @@ let
     all
     attrNames
     filter
-    head
     listToAttrs
     map
     mapAttrs
     nameValuePair
+    setAttrByPath
     sort
     ;
   inherit (builtins)
@@ -36,7 +36,6 @@ let
     lessThan
     removeAttrs
     split
-    tail
     toJSON
     ;
   inherit (contract) mkCoreRecord;
@@ -54,14 +53,6 @@ let
   # A dotted projection "systemd.units" -> [ "systemd" "units" ] via builtins.split (NO nixpkgs
   # splitString); the string fragments survive the filter, the empty match-group lists are dropped.
   splitOnDots = s: filter isString (split "\\." s);
-  setAttrByPath =
-    path: value:
-    if path == [ ] then
-      value
-    else
-      {
-        ${head path} = setAttrByPath (tail path) value;
-      };
 
   # mkCore { class; projection; projections; } -> Core. projections = memberName -> attrs (the already-
   # extracted projection subtree per member; must cover class.members). The presence-guarded byte-
