@@ -50,7 +50,6 @@ dep (gen-prelude, the pure utility base); `merge` is [gen-merge](https://github.
 | [gen-select](https://github.com/sini/gen-select) | Selector algebra (pattern matching over graph positions) |
 | [gen-bind](https://github.com/sini/gen-bind) | Module binding (inject external args into NixOS modules) |
 | [gen-dispatch](https://github.com/sini/gen-dispatch) | Relational rule dispatch STEP (stratified phases, conflict resolution) |
-| [gen-resolve](https://github.com/sini/gen-resolve) | Demand-driven RAG evaluator over scope graphs (attribute schedule + convergence loop) |
 | [gen-class](https://github.com/sini/gen-class) | **This lib** — class-share mechanism (partition / contract / apply / gate), byte-gated, tier-2 fixed-input via gen-merge |
 | [gen-memo](https://github.com/sini/gen-memo) | The incremental plane — decides reuse, never evaluates (change propagation, AFFECTED set) |
 | [gen-vars](https://github.com/sini/gen-vars) | Pure-Nix vars/secrets (den-agnostic) |
