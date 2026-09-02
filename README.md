@@ -53,7 +53,6 @@ dep (gen-prelude, the pure utility base); `merge` is [gen-merge](https://github.
 | [gen-class](https://github.com/sini/gen-class) | **This lib** — class-share mechanism (partition / contract / apply / gate), byte-gated, tier-2 fixed-input via gen-merge |
 | [gen-memo](https://github.com/sini/gen-memo) | The incremental plane — decides reuse, never evaluates (change propagation, AFFECTED set) |
 | [gen-vars](https://github.com/sini/gen-vars) | Pure-Nix vars/secrets (den-agnostic) |
-| [gen-flake](https://github.com/sini/gen-flake) | The nixpkgs boundary — compose purely, inject resolved values, build NixOS systems (value-injection) |
 
 ## The four verb groups
 
