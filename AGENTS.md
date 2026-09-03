@@ -83,6 +83,8 @@ The surface is FLAT — `contract // partition // apply // gate` (`lib/default.n
 
 ## Measured traps
 
+<!-- gen-citations:begin -->
+
 Verified at `e021123` on Nix 2.34.8. Shared fixtures: `gc = import ./lib { inherit prelude; }` (merge = null); `gcm` = the same with `merge` injected; `t = x: (builtins.tryEval (builtins.deepSeq x x)).success`; `cls = gc.mkClass { key = "h"; members = [ "blade" "cortex" ]; }` (archetype ⇒ `"blade"`); `projs = { blade = { shared = 1; div = "b"; bladeOnly = 9; }; cortex = { shared = 1; div = "c"; }; }`; `core = gc.mkCore { class = cls; projection = "systemd.units"; projections = projs; }`.
 
 | Trap | Evidence |
@@ -111,6 +113,8 @@ Verified at `e021123` on Nix 2.34.8. Shared fixtures: `gc = import ./lib { inher
 | The public attrset is a flat union — later group wins on a name collision | `lib/default.nix:14`; `length (attrNames gc)` ⇒ `10` = contract 2 + partition 1 + apply 5 + gate 2, so nothing is currently shadowed |
 
 Read, not exercised: the gen-merge kernel's own firing scope (`coreShortCircuit` at a sole-def declared-option leaf) is read from `lib/apply.nix:143-159` and exercised only through the repo's own `ci/tests/apply-fixed.nix` (`test-skip-fires-through-boom`, `test-off-runs-throwing-spine`), not by a probe in this run.
+
+<!-- gen-citations:end -->
 
 ## Theory
 
