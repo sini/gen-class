@@ -6,7 +6,12 @@
 #
 # Scope: lib/**.nix + the root flake.nix + default.nix. NOT ci/ (the harness + the applyCoreExtend
 # reference side legitimately use nixpkgs.lib).
-{ genPrelude, lib, ... }:
+{
+  genMerge,
+  genPrelude,
+  lib,
+  ...
+}:
 let
   libDir = ../../lib;
 
@@ -51,15 +56,25 @@ let
       )
     ) srcs;
 
+  # walk : string -> path -> [ { name; path; } ], `name` being `prefix` extended by the entry's
+  # position in the tree. The label a red CI prints is the whole product of a failing cell, and a
+  # `toString` of the path value renders the store copy the flake is evaluated from
+  # (`/nix/store/<hash>-source/lib/default.nix`) — a file no reader can open in their own checkout,
+  # whose hash moves on any unrelated edit. Same shape as gen-link's and gen-graph's, deliberately.
   walk =
-    dir:
+    prefix: dir:
     lib.concatLists (
       lib.mapAttrsToList (
-        name: type:
+        entry: type:
         if type == "directory" then
-          walk (dir + "/${name}")
-        else if lib.hasSuffix ".nix" name then
-          [ (dir + "/${name}") ]
+          walk "${prefix}${entry}/" (dir + "/${entry}")
+        else if lib.hasSuffix ".nix" entry then
+          [
+            {
+              name = "${prefix}${entry}";
+              path = dir + "/${entry}";
+            }
+          ]
         else
           [ ]
       ) (builtins.readDir dir)
@@ -70,26 +85,32 @@ let
   # the read; and `sources` is then a total per-element function of `rawSources` — the name passes
   # through, the code is the strip of the text — so pinning either one pins the other, and the cells
   # over each COMPOSE instead of hoping two independent reads of the same tree agree.
-  rawSources =
-    map (p: {
-      name = toString p;
-      text = builtins.readFile p;
-    }) (walk libDir)
-    ++
-      map
-        (rel: {
-          name = rel;
-          text = builtins.readFile (../.. + "/${rel}");
-        })
-        [
-          "flake.nix"
-          "default.nix"
-        ];
+  raw =
+    entries:
+    map (e: {
+      inherit (e) name;
+      text = builtins.readFile e.path;
+    }) entries;
 
-  sources = map (s: {
-    inherit (s) name;
-    code = stripComments s.text;
-  }) rawSources;
+  strip =
+    entries:
+    map (e: {
+      inherit (e) name;
+      code = stripComments e.text;
+    }) entries;
+
+  rawSources = raw (walk "lib/" libDir) ++ [
+    {
+      name = "flake.nix";
+      text = builtins.readFile ../../flake.nix;
+    }
+    {
+      name = "default.nix";
+      text = builtins.readFile ../../default.nix;
+    }
+  ];
+
+  sources = strip rawSources;
 
   # The nixpkgs / module-system tether. gen-class defines no nixpkgs replacements, so the whole
   # `lib.`/`evalModules`/`nixpkgs` surface is forbidden in the library source.
@@ -108,15 +129,111 @@ let
     "{ lib,"
   ];
 
-  violations = lib.concatMap (
-    src:
-    map (tok: "${src.name}: '${tok}'") (lib.filter (tok: genPrelude.hasInfix tok src.code) forbidden)
-  ) sources;
+  # scan : [ { name; code; } ] -> [ "file: 'tok'" ]. Factored out of `violations` so the detector
+  # cell below runs THE SAME call over the same source list with one entry appended, rather than a
+  # second copy of the predicate that could drift from this one.
+  scan =
+    srcs:
+    lib.concatMap (
+      src:
+      map (tok: "${src.name}: '${tok}'") (lib.filter (tok: genPrelude.hasInfix tok src.code) forbidden)
+    ) srcs;
+
+  violations = scan sources;
+
+  # ★ THE OVERRIDE CONVENTION, TAKEN FROM THE INJECTED KERNEL RATHER THAN WRITTEN DOWN. gen-merge's
+  # `mkForce` is `mkOverride 50` (its `lib/priority.nix`), and the record it builds is the one
+  # `lib/apply.nix` must hand-build to stay byte-compatible with a nixpkgs `mkForce` while importing
+  # nothing. Deriving the fields from the kernel rather than restating them as literals is what keeps
+  # the two from drifting: if the kernel's convention ever moves, this moves with it.
+  kernelOverride = genMerge.mkForce "<probe>";
+  overrideFields = [
+    ''_type = "${kernelOverride._type}";''
+    "priority = ${toString kernelOverride.priority};"
+  ];
+
+  applySource = (lib.head (lib.filter (s: s.name == "lib/apply.nix") sources)).code;
+  missingFrom = lib.filter (frag: !genPrelude.hasInfix frag applySource);
 in
 {
   flake.tests.purity.test-library-source-is-nixpkgs-free = {
     expr = violations;
     expected = [ ];
+  };
+
+  # What the cell above is a statement ABOUT. Its `[ ]` is produced just as readily by a scan that
+  # reads the wrong tree, or no tree, as by a library that is clean, and neither the detector cell
+  # below nor a guard on the source list's SIZE can tell those apart — the first never touches
+  # `sources`, and the second answers a question about how many rather than which. The library tree
+  # is small and its membership is a deliberate surface, so it is written down. A new library file
+  # then arrives as a RED that has to be read, rather than being absorbed silently.
+  #
+  # WHAT IT IS SILENT ON: content. A read handing every entry one fixed string satisfies this cell
+  # exactly, and no cell here sees that; the membership half is what this one carries.
+  flake.tests.purity.test-scan-subject-is-the-library-tree = {
+    expr = map (s: s.name) sources;
+    expected = [
+      "lib/apply.nix"
+      "lib/contract.nix"
+      "lib/default.nix"
+      "lib/gate.nix"
+      "lib/partition.nix"
+      "flake.nix"
+      "default.nix"
+    ];
+  };
+
+  # The detector has teeth, and it grows them on the real subject: the scan runs over exactly the
+  # source list the cell above asserts, with one synthetic entry appended. So the firing is proven by
+  # the same call that reports the tree clean, and the expectation states both halves at once — the
+  # library contributes nothing and the planted tether contributes precisely this.
+  #
+  # The expectation is the violation LIST, not merely that one was produced: a detector that fires on
+  # the wrong token, or whose `file: 'tok'` message has decayed into something a reader cannot act on
+  # off a red CI, is broken in the way that matters and a bare non-emptiness check would pass it. The
+  # synthetic entry is never written to disk, and its label is bracketed so it cannot be read as one
+  # of the repo-root-relative paths it now sits beside. Its trailing comment names `nixpkgs`, which
+  # the strip removes — so this cell also fails if the strip stops running.
+  flake.tests.purity.test-detector-catches-injected-violation = {
+    expr = scan (
+      sources
+      ++ [
+        {
+          name = "<injected>";
+          code = stripComments "  foo = lib.types.str; # comment mentioning nixpkgs is stripped";
+        }
+      ]
+    );
+    expected = [
+      "<injected>: 'lib.'"
+      "<injected>: 'lib.types'"
+    ];
+  };
+
+  # ★ THE HAND-BUILT OVERRIDE RECORD, HELD AGAINST WHAT THE KERNEL ACTUALLY PRODUCES. The header
+  # states that `applyCoreExtend` hand-builds `{ _type = "override"; priority = 50; content = v; }`
+  # rather than calling nixpkgs `mkForce`, and the `lib.mkForce` ban above holds only the CALL —
+  # nothing held the EQUIVALENCE. That half is not a tether and no token scan can reach it: a record
+  # whose `_type` or `priority` drifted from the convention imports nothing, breaches no ban, and is
+  # a silent wrong answer at every consumer that dispatches on those two fields. Reported as the list
+  # of fields the library source is MISSING, so a red names the one that moved.
+  flake.tests.purity.test-hand-built-override-matches-the-merge-kernel = {
+    expr = missingFrom overrideFields;
+    expected = [ ];
+  };
+
+  # And the presence scan can say no. Same subject and same predicate, asked of ONE fragment the
+  # record deliberately does not carry — a scan stuck at "everything is present", or pointed at a
+  # source it cannot read, reds here rather than reporting the cell above clean.
+  #
+  # ★ ITS SUBJECT DELIBERATELY EXCLUDES `overrideFields`. A control whose expectation is coupled to
+  # the list it controls moves every time that list moves, and is then one edit from vacuous: with
+  # the real fields folded in, a drift in the record reds this cell too and the two stop being
+  # separate readings. Both directions are still covered — a predicate stuck at `[ ]` reds HERE, and
+  # one stuck at "everything missing" reds the cell ABOVE.
+  flake.tests.purity.test-control-override-field-scan-is-live = {
+    expr = missingFrom [ ''_type = "mkForce";'' ];
+    expected = [ ''_type = "mkForce";'' ];
   };
 
   # ★ THE PREMISE HOLDS OF THE TEXT THAT WAS ACTUALLY SCANNED. This is an absence claim over text
