@@ -37,31 +37,31 @@ dep (gen-prelude, the pure utility base); `merge` is [gen-merge](https://github.
 
 ## Gen Ecosystem
 
-| Library | Role |
-|---------|------|
-| [gen-prelude](https://github.com/sini/gen-prelude) | Pure nixpkgs-lib-free utility base (builtins re-exports + vendored lib utils) |
-| [gen-algebra](https://github.com/sini/gen-algebra) | Pure primitives (record, search monad, either, intensional identity) |
-| [gen-types](https://github.com/sini/gen-types) | Clean-room MIT structural type checker (leaf/poly checkers; `verify: v → null\|err`) |
-| [gen-merge](https://github.com/sini/gen-merge) | Byte-mode module merge engine (`evalModuleTree`); hosts the tier-2 fixed-input kernel |
-| [gen-schema](https://github.com/sini/gen-schema) | Typed registries (kinds, instances, collections, refs); re-hosted on gen-merge |
-| [gen-aspects](https://github.com/sini/gen-aspects) | Aspect type system (traits, classification, dispatch); re-hosted on gen-merge |
-| [gen-scope](https://github.com/sini/gen-scope) | HOAG scope-graph evaluator (demand-driven, \_eval memoization, circular attributes) |
-| [gen-graph](https://github.com/sini/gen-graph) | Accessor-based graph query combinators (traversal, condensation, phaseOrder) |
-| [gen-select](https://github.com/sini/gen-select) | Selector algebra (pattern matching over graph positions) |
-| [gen-bind](https://github.com/sini/gen-bind) | Module binding (inject external args into NixOS modules) |
-| [gen-dispatch](https://github.com/sini/gen-dispatch) | Relational rule dispatch STEP (stratified phases, conflict resolution) |
-| [gen-class](https://github.com/sini/gen-class) | **This lib** — class-share mechanism (partition / contract / apply / gate), byte-gated, tier-2 fixed-input via gen-merge |
-| [gen-memo](https://github.com/sini/gen-memo) | The incremental plane — decides reuse, never evaluates (change propagation, AFFECTED set) |
-| [gen-vars](https://github.com/sini/gen-vars) | Pure-Nix vars/secrets (den-agnostic) |
+| Library                                              | Role                                                                                                                     |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| [gen-prelude](https://github.com/sini/gen-prelude)   | Pure nixpkgs-lib-free utility base (builtins re-exports + vendored lib utils)                                            |
+| [gen-algebra](https://github.com/sini/gen-algebra)   | Pure primitives (record, search monad, either, intensional identity)                                                     |
+| [gen-types](https://github.com/sini/gen-types)       | Clean-room MIT structural type checker (leaf/poly checkers; `verify: v → null\|err`)                                     |
+| [gen-merge](https://github.com/sini/gen-merge)       | Byte-mode module merge engine (`evalModuleTree`); hosts the tier-2 fixed-input kernel                                    |
+| [gen-schema](https://github.com/sini/gen-schema)     | Typed registries (kinds, instances, collections, refs); re-hosted on gen-merge                                           |
+| [gen-aspects](https://github.com/sini/gen-aspects)   | Aspect type system (traits, classification, dispatch); re-hosted on gen-merge                                            |
+| [gen-scope](https://github.com/sini/gen-scope)       | HOAG scope-graph evaluator (demand-driven, \_eval memoization, circular attributes)                                      |
+| [gen-graph](https://github.com/sini/gen-graph)       | Accessor-based graph query combinators (traversal, condensation, phaseOrder)                                             |
+| [gen-select](https://github.com/sini/gen-select)     | Selector algebra (pattern matching over graph positions)                                                                 |
+| [gen-bind](https://github.com/sini/gen-bind)         | Module binding (inject external args into NixOS modules)                                                                 |
+| [gen-dispatch](https://github.com/sini/gen-dispatch) | Relational rule dispatch STEP (stratified phases, conflict resolution)                                                   |
+| [gen-class](https://github.com/sini/gen-class)       | **This lib** — class-share mechanism (partition / contract / apply / gate), byte-gated, tier-2 fixed-input via gen-merge |
+| [gen-memo](https://github.com/sini/gen-memo)         | The incremental plane — decides reuse, never evaluates (change propagation, AFFECTED set)                                |
+| [gen-vars](https://github.com/sini/gen-vars)         | Pure-Nix vars/secrets (den-agnostic)                                                                                     |
 
 ## The four verb groups
 
-| verb group | exports | role |
-|---|---|---|
-| **partition** | `mkClasses` | group nodes into classes by a `keyOf` key — *keys narrow, they do not authorise* |
-| **contract** | `mkClass`, `mkCoreRecord` | the Class / Core plain-data records + validators (the seam as data) |
-| **apply** | `mkCore`, `applyCoreMerge`, `applyCoreExtend`, `invariantUnder`, `applyCoreFixed` | the per-class oracle + core-application mechanisms |
-| **gate** | `gateCore`, `compareCounters` | the hard-fail byte gate + the pure half of the two-tier counter policy |
+| verb group    | exports                                                                           | role                                                                             |
+| ------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| **partition** | `mkClasses`                                                                       | group nodes into classes by a `keyOf` key — *keys narrow, they do not authorise* |
+| **contract**  | `mkClass`, `mkCoreRecord`                                                         | the Class / Core plain-data records + validators (the seam as data)              |
+| **apply**     | `mkCore`, `applyCoreMerge`, `applyCoreExtend`, `invariantUnder`, `applyCoreFixed` | the per-class oracle + core-application mechanisms                               |
+| **gate**      | `gateCore`, `compareCounters`                                                     | the hard-fail byte gate + the pure half of the two-tier counter policy           |
 
 `mkCore` is the oracle: `sharedKeys` = the keys **present in every member** whose values are
 `toJSON`-equal to the archetype's (presence-guarded — a member missing an archetype key drops that key
@@ -75,11 +75,11 @@ differently from three execution planes. All figures are from the A1 fleet campa
 (`den-architecture/gen-specs/2026-07-05-a1-fleet-measurement-report.md`, hola `d643a8d`, the real
 three-host fleet bitstream/blade/cortex), each a permanent byte-gated regression:
 
-| plane | what it measures | the A1 number (with its scope) | reading |
-|---|---|---|---|
-| **deploy-time incremental** (cross-eval) | recompute a localized change would repeat host-by-host across separate evals | a single-host edit **skips 66.7%** of fleet composition, byte-sound (Arm R, gate floor ≥ 0.60) | large win — where [gen-memo](https://github.com/sini/gen-memo)'s incremental reuse lands; NOT a from-scratch speedup |
-| **in-eval declaration** (shared-process) | is the shared option-declaration tree free to share within one eval? | blade+cortex from one `out` ≈ **1.066×** a single host, not 2× (Arm C keystone) | already free — native Nix thunk memoization shares it; nothing for a framework to add |
-| **in-eval realization** (shared-process) | is host-specific realization free to share within one eval? | a **212-unit (76.3%)** byte-identical `systemd.units` core injects byte-identically; config-merge saves **~1.6%/member** (Task 7b, floor ≥ 0.008) | partially shareable, must be engineered — the den-hoag target |
+| plane                                    | what it measures                                                             | the A1 number (with its scope)                                                                                                                    | reading                                                                                                              |
+| ---------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **deploy-time incremental** (cross-eval) | recompute a localized change would repeat host-by-host across separate evals | a single-host edit **skips 66.7%** of fleet composition, byte-sound (Arm R, gate floor ≥ 0.60)                                                    | large win — where [gen-memo](https://github.com/sini/gen-memo)'s incremental reuse lands; NOT a from-scratch speedup |
+| **in-eval declaration** (shared-process) | is the shared option-declaration tree free to share within one eval?         | blade+cortex from one `out` ≈ **1.066×** a single host, not 2× (Arm C keystone)                                                                   | already free — native Nix thunk memoization shares it; nothing for a framework to add                                |
+| **in-eval realization** (shared-process) | is host-specific realization free to share within one eval?                  | a **212-unit (76.3%)** byte-identical `systemd.units` core injects byte-identically; config-merge saves **~1.6%/member** (Task 7b, floor ≥ 0.008) | partially shareable, must be engineered — the den-hoag target                                                        |
 
 Realization is small because a member's `systemd.units` *value* realization is ~2% of its eval; the
 host-specific config-resolution **spine** (~98%) dominates, and config-merge (`applyCoreMerge`) cannot
