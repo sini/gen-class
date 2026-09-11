@@ -205,10 +205,10 @@ skip case and the fall-through case are byte-gated in `ci/tests/apply-fixed.nix`
   (Plane 2b) is out of scope — the deploy-time 66.7% number is recorded in the hub's `BENCHMARKS.md`,
   whose row is labelled *(Arm R, gen-rebuild)* because that is the library it was measured against, at its
   own pin. The MECHANISM has since moved to [gen-memo](https://github.com/sini/gen-memo), which inherited
-  it when gen-rebuild retired as a library (ADR-0008 §4). Either way, not here.
+  it when gen-rebuild retired as a library. Either way, not here.
 - **Projection-only for the merge path.** `applyCoreMerge` / `applyCoreFixed` return the projection
   **subtree**, not a deployable toplevel. Recovering a full toplevel *from* the spine-skipped path is
-  **tier 3 (den-hoag)** — a distinct, engine + den-hoag-level capability. `applyCoreExtend` is the only
+  **tier 3 (den-hoag)** — a distinct capability at the engine and den-hoag tiers. `applyCoreExtend` is the only
   verb that yields a deployable toplevel, and it does so legitimately by paying the full per-member
   re-eval (it does not skip the spine).
 - **Tier 3 = den-hoag.** Boundary declaration from den's aspect structure (declare-don't-discover),
