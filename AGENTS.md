@@ -1,5 +1,7 @@
 # gen-class — agent capability sheet
 
+> **Library class: reference-grade.** Deletion requires a domain argument — wrong abstraction, subsumption by another construct, or theory-unsoundness; a usage count is inadmissible as a deletion ground (P7, 2026-08-17).
+
 ## Scope
 
 Class-share mechanism: groups nodes into classes by a caller-supplied key (`mkClasses`), computes each class's byte-identical shared **core** over a named projection (`mkCore`), applies that core back onto a member (`applyCoreMerge` / `applyCoreExtend` / tier-2 `applyCoreFixed`), and authorises every reuse claim by sha256 over canonical `toJSON` (`gateCore`).
