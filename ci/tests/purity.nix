@@ -132,6 +132,20 @@ let
   # scan : [ { name; code; } ] -> [ "file: 'tok'" ]. Factored out of `violations` so the detector
   # cell below runs THE SAME call over the same source list with one entry appended, rather than a
   # second copy of the predicate that could drift from this one.
+  #
+  # The live counterpart to `forbidden`: the raw substrate this library reaches for where a tether
+  # would reach for nixpkgs lib. The ecosystem's usual choice here — `prelude`, gen-class's one
+  # library dependency — was MEASURED AND REJECTED: it occurs in all seven sources, so a list over it
+  # would be the manifest again under a second name, restating membership and asserting nothing new
+  # about content. `builtins` is the other half of what a nixpkgs-free library may name, and exactly
+  # one source is outside it, BY CONSTRUCTION: `lib/default.nix` is the public-API re-export, whose
+  # whole body is four `import`s and `contract // partition // apply // gate`. That exclusion is what
+  # gives the assertion its teeth — the expected list is a PROPER SUBSET of the manifest, so a read
+  # returning one fixed text for every file lands outside it either way: without the token the list
+  # collapses toward empty, with it the list swells to every source.
+  liveToken = "builtins";
+  liveReads = map (src: src.name) (lib.filter (src: genPrelude.hasInfix liveToken src.code) sources);
+
   scan =
     srcs:
     lib.concatMap (
@@ -176,6 +190,25 @@ in
       "lib/apply.nix"
       "lib/contract.nix"
       "lib/default.nix"
+      "lib/gate.nix"
+      "lib/partition.nix"
+      "flake.nix"
+      "default.nix"
+    ];
+  };
+
+  # And that those labels carry their files' text. The manifest above pins membership and is silent
+  # on content: a read that handed every entry one fixed string would satisfy it exactly, and a live
+  # `lib.mkMerge` sitting in the real library file would pass through every other cell here at exit
+  # 0. This is the same shape as the manifest — an exact list, not a count — asked of a token that is
+  # genuinely present rather than genuinely absent, so the reads are shown to carry this
+  # repository's source and not a constant. A count-preserving swap, one member's bytes replaced by
+  # another file's, leaves the manifest cell GREEN and reds this one.
+  flake.tests.purity.test-scan-reads-are-live = {
+    expr = liveReads;
+    expected = [
+      "lib/apply.nix"
+      "lib/contract.nix"
       "lib/gate.nix"
       "lib/partition.nix"
       "flake.nix"
