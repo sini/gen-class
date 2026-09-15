@@ -27,12 +27,30 @@ Quoted text is the owner's own `flake.nix` `description` field, verbatim.
 
 ## Exports
 
-Two real wirings, both `import ./lib`:
+Entry: `inputs.gen-class.lib` (flake), or the root `default.nix` — a **function** of `{ prelude, merge }`, per the gen root-file convention. `merge` is an ORDINARY formal now (owner-ruled arm A,
+`den-hoag-4dfsv`, 2026-09-15) — no longer `merge ? null` at this root, so a caller supplying nothing
+gets the **tier-2** surface (`applyCoreFixed` live) by default; the tier-1 (merge-free) surface now
+requires an explicit `merge = null`. Root `default.nix`'s `wire ? { deps, resolve }: import ./lib deps` formal is the seam that hands this exact substrate attrset to `./lib` as `deps`, and it is
+also the only channel by which the shim publishes anything outward — a formal is an INPUT channel
+and cannot carry a value out, so the lock-parameterised `follows` resolver rides out on the same
+record. Overriding `wire` is how a cell reads the shim's own formal-to-path map AND its own
+resolver, instead of restating either by hand; the `follows` rule is therefore declared once in this
+repository, in `default.nix`. The unresolved defaults resolve `prelude` and `merge` from
+`ci/flake.lock`, never the root `flake.lock` — and this repository's own `ci/flake.lock` is one
+where `gen-prelude`'s node key (`gen-prelude_3`) differs from the literal label, so the resolver
+walks the `follows` path rather than indexing by label; `merge`'s node key happens to agree with its
+label at this lock.
 
-- **flake `.lib`** — `import ./lib { prelude = gen-prelude.lib; }` (`flake.nix:15-17`). `merge` defaults to `null` (`lib/default.nix:6`), so this is the **tier-1** surface.
-- **hub `mkGenLibs.class`** — `import "${genInputs.gen-class}/lib" { prelude = …; merge = genInputs.gen-merge.lib; }` (`gen/lib/mkGenLibs.nix:38-41`), the **tier-2** surface. gen-class is the one Class B member the hub re-imports rather than re-exporting.
+Two real wirings, both eventually `import ./lib`:
 
-The export **names are identical under both wirings** (drift check below): `applyCoreFixed` is unconditionally exported and throws only when called with `merge = null`. Root `default.nix` is the non-flake twin (same two arguments, gen-prelude defaulted from `flake.lock`).
+- **flake `.lib`** — `import ./. { prelude = gen-prelude.lib; }` (`flake.nix:34-36`), PARTIALLY
+  APPLIED: `merge` is left at the root's own default, which resolves it from `ci/flake.lock` the
+  same three-channel way as every other formal. This output is now the **tier-2** surface
+  (`applyCoreFixed` live) by default — a reversal from the pre-migration `merge = null` default. A
+  tier-1-only consumer overrides explicitly: `import gen-class-src { merge = null; }`.
+- **hub `mkGenLibs.class`** — `import "${genInputs.gen-class}/lib" { prelude = …; merge = genInputs.gen-merge.lib; }` (`gen/lib/mkGenLibs.nix:38-41`), also the **tier-2** surface. gen-class is the one Class B member the hub re-imports rather than re-exporting.
+
+The export **names are identical under both wirings** (drift check below): `applyCoreFixed` is unconditionally exported and throws only when called with `merge = null`. The flake `.lib` output above literally calls this root `default.nix` (`import ./. { … }`) rather than merely mirroring it, since the migration to the arm-B shim (`den-hoag-4dfsv`).
 
 The surface is FLAT — `contract // partition // apply // gate` (`lib/default.nix:14`), 10 names, no shadowing.
 
@@ -147,7 +165,7 @@ in {
 }'
 ```
 
-`flakeLib` is the flake `.lib` surface (`merge = null`); `hubLib` is the hub `mkGenLibs.class` surface (gen-merge injected). The Exports section claims **both**, and they carry the same names.
+`flakeLib` recomputes the tier-1 (`merge = null`) name-list directly from `./lib`, independent of the root shim; `hubLib` recomputes the tier-2 (gen-merge injected) name-list the same way. Since arm A (`den-hoag-4dfsv`), the flake `.lib` output ITSELF now resolves to `hubLib`'s tier by default (`merge` is an ordinary root formal, not `null`) — this comparison checks that both tiers still export the SAME NAMES, not which tier the flake currently defaults to. The Exports section above documents which real wiring is which.
 
 Current output (verbatim):
 
