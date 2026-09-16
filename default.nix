@@ -5,20 +5,19 @@
 # ITSELF rather than falling back; the default is resolved from `./ci/flake.lock`, read as local
 # data. There is NO `...`: an argument this root does not declare is a loud error, not a silent drop.
 #
-# THE PIN SOURCE IS `ci/flake.lock`, NOT THE ROOT `flake.lock`. The root lock stays the flake path's
-# lock and is no longer read by Nix code, which is what lets one rule hold across the roster: a root
-# lock exists only where the root flake declares inputs, while `ci/flake.lock` exists everywhere —
-# including at the libraries that declare no inputs at all and so could hold no shim under the old
-# rule. gen-prelude and gen-merge are both root inputs of the ci lock, so both paths below are one
-# segment long.
+# THE PIN SOURCE IS THE ROOT `flake.lock`, NOT `ci/flake.lock` (owner-ruled Arm A, 2026-09-16:
+# `den-hoag-4dfsv` §4.2). gen-prelude and gen-merge are both declared root flake inputs, so both are
+# root inputs of the root lock and both paths below are one segment long — the ci lock is the test
+# graph's own pin source and is no longer read by this file.
 #
-# `merge` IS NOW AN ORDINARY FORMAL, RESOLVED THE SAME THREE-CHANNEL WAY AS `prelude` — no longer
-# `merge ? null`. gen-merge is already a root input of `ci/flake.lock` (the hub's tier-2 wiring
-# injects it and always has), so this widens no lock edge and adds no new pin. A caller who wants
-# the tier-1 (merge-free) surface passes `merge = null` explicitly — the named formal wins, so
-# nothing is fetched for it. A caller who supplies nothing now gets the tier-2 surface instead
-# (`applyCoreFixed` live rather than throwing), because that is what "resolved from ci/flake.lock"
-# means for this formal, uniformly with every other one.
+# `merge` IS AN ORDINARY FORMAL, RESOLVED THE SAME THREE-CHANNEL WAY AS `prelude` — no longer
+# `merge ? null` (owner-ruled arm A, 2026-09-15). §4.2's landing widens the lock edge the 2026-09-15
+# ruling found already free: `gen-merge` is now a root input of THIS pin source, declared for
+# exactly this member, where before it rode along inside `ci/flake.lock`'s own tier-2 wiring. A
+# caller who wants the tier-1 (merge-free) surface passes `merge = null` explicitly — the named
+# formal wins, so nothing is fetched for it. A caller who supplies nothing now gets the tier-2
+# surface instead (`applyCoreFixed` live rather than throwing), because that is what "resolved from
+# the root lock" means for this formal, uniformly with every other one.
 #
 # `src` AND `dep` ARE FORMALS, NOT `let` BINDINGS, AND THAT IS THE INJECTABLE RESOLVER SEAM — the
 # one channel a cell can close. `src` is the only expression here that fetches; everything else
@@ -30,7 +29,7 @@
 # The `let` is OUTSIDE the lambda because a formal's default is evaluated in the FORMAL scope, which
 # does not see a `let` in the body.
 let
-  lock = builtins.fromJSON (builtins.readFile ./ci/flake.lock);
+  lock = builtins.fromJSON (builtins.readFile ./flake.lock);
   # A direct edge IS the node key; a `follows` value is a PATH resolved segment by segment from this
   # lock's own root. Never by indexing `lock.nodes.<label>` — a last-segment shortcut reads a
   # different node, and this repository's own ci lock is one where `gen-prelude`'s own NODE KEY

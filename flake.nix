@@ -2,13 +2,16 @@
   description = "gen-class — pure-Nix class-share mechanism (partition / contract / apply / gate) for the pure-gen module system";
 
   # Class layering: gen-prelude → gen-class (Class B, deps injected per gen convention §8). `merge`
-  # is an ORDINARY root formal now (owner-ruled arm A, 2026-09-15: `den-hoag-4dfsv`) — gen-class has
-  # two `./lib` formals but this root declares only ONE flake input, because gen-merge already sits
-  # in `ci/flake.lock` as the hub's own tier-2 wiring source and adding it HERE would be a second,
-  # divergent lock edge for the same dependency rather than a new one. `surface` below is therefore
-  # PARTIALLY APPLIED: `merge` is left at `./.`'s own default, which resolves it from `ci/flake.lock`
-  # the same three-channel way every other formal on this root does. That means this flake's `.lib`
-  # now builds the TIER-2 surface (`applyCoreFixed` live) rather than the historical tier-1
+  # is an ORDINARY root formal (owner-ruled arm A, 2026-09-15: `den-hoag-4dfsv`), resolved the same
+  # three-channel way as `prelude`. This root now declares BOTH flake inputs (owner-ruled arm A,
+  # 2026-09-16: `den-hoag-4dfsv` §4.2 — the pin source is the root `flake.lock`, not `ci/flake.lock`,
+  # so `gen-merge` sitting in the CI lock no longer discharges the pin `merge`'s own ordinary-formal
+  # status requires; declaring it here is that same ruling's own construction applied to this member,
+  # not a reversal of it). `surface` below stays PARTIALLY APPLIED: `merge` is left at `./.`'s own
+  # default, which now resolves it from THIS root's `flake.lock` the same three-channel way every
+  # other formal on this root does — declaring the input is not applying it, so nothing here pins a
+  # tier on a consumer's behalf beyond what `nix flake lock` already commits to. That means this
+  # flake's `.lib` builds the TIER-2 surface (`applyCoreFixed` live) rather than the historical tier-1
   # (`merge = null`) one — a consumer wanting tier-1 from THIS output overrides it explicitly:
   # `gen-class.lib` is a function only until applied, so `(import gen-class-src {}).functionArgs`-style
   # override is not available at the flake boundary; a tier-1-only consumer imports the root directly
@@ -18,6 +21,7 @@
   # (policy.provide, r2:201).
   inputs = {
     gen-prelude.url = "github:sini/gen-prelude";
+    gen-merge.url = "github:sini/gen-merge";
   };
 
   outputs =
