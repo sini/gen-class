@@ -23,7 +23,11 @@ let
   inherit (prelude)
     all
     attrNames
+    attrValues
     filter
+    isAttrs
+    isFunction
+    isList
     listToAttrs
     map
     mapAttrs
@@ -54,6 +58,48 @@ let
   # splitString); the string fragments survive the filter, the empty match-group lists are dropped.
   splitOnDots = s: filter isString (split "\\." s);
 
+  # Whether `toJSON v` returns rather than aborts: a function anywhere toJSON walks is an evaluator
+  # error that escapes `tryEval`. Mirrors toJSON's own walk — `__toString` first, then `outPath`.
+  serialisable =
+    v:
+    if isFunction v then
+      false
+    else if isAttrs v then
+      v ? __toString || (if v ? outPath then serialisable v.outPath else all serialisable (attrValues v))
+    else if isList v then
+      all serialisable v
+    else
+      true;
+
+  # oracle verb { class; projections; } -> { archProj; agrees : key -> bool; } — THE ORACLE, shared by
+  # mkCore (keeps the archetype keys `agrees` holds for) and invariantUnder (reports those it fails
+  # for): k is PRESENT in every member and toJSON-equal to the archetype's value. The two caller-input
+  # mistakes it would otherwise abort on outside `tryEval` are refused as throws, in mkClass's
+  # phrasing: projections not covering class.members, and a compared value toJSON cannot serialise.
+  oracle =
+    verb:
+    { class, projections }:
+    let
+      inherit (class) members archetype;
+      missing = filter (m: !(projections ? ${m})) members;
+      json =
+        m: k:
+        let
+          v = projections.${m}.${k};
+        in
+        if serialisable v then
+          toJSON v
+        else
+          throw "gen-class: ${verb}: projections.${m}.${k} must be toJSON-serialisable (it holds a function)";
+    in
+    if missing != [ ] then
+      throw "gen-class: ${verb}: projections must cover class.members (missing ${toJSON missing})"
+    else
+      {
+        archProj = projections.${archetype};
+        agrees = k: all (m: (projections.${m} ? ${k}) && json archetype k == json m k) members;
+      };
+
   # mkCore { class; projection; projections; } -> Core. projections = memberName -> attrs (the already-
   # extracted projection subtree per member; must cover class.members). The presence-guarded byte-
   # identical intersection, sorted; values = the archetype's projection restricted to sharedKeys.
@@ -64,14 +110,8 @@ let
       projections,
     }:
     let
-      inherit (class) members archetype;
-      archProj = projections.${archetype};
-      sharedKeys = sort lessThan (
-        filter (
-          k:
-          all (m: (projections.${m} ? ${k}) && toJSON archProj.${k} == toJSON projections.${m}.${k}) members
-        ) (attrNames archProj)
-      );
+      inherit (oracle "mkCore" { inherit class projections; }) archProj agrees;
+      sharedKeys = sort lessThan (filter agrees (attrNames archProj));
     in
     mkCoreRecord {
       inherit class projection sharedKeys;
@@ -115,16 +155,8 @@ let
       class,
     }:
     let
-      inherit (class) members archetype;
-      archProj = projections.${archetype};
-      divergingKeys = sort lessThan (
-        filter (
-          k:
-          !(all (
-            m: (projections.${m} ? ${k}) && toJSON archProj.${k} == toJSON projections.${m}.${k}
-          ) members)
-        ) (attrNames archProj)
-      );
+      inherit (oracle "invariantUnder" { inherit class projections; }) archProj agrees;
+      divergingKeys = sort lessThan (filter (k: !(agrees k)) (attrNames archProj));
     in
     {
       invariant = divergingKeys == [ ];

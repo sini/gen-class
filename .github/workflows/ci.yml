@@ -16,4 +16,7 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@main
       - uses: DeterminateSystems/magic-nix-cache-action@main
       - run: nix flake check
+      # `nix flake check` covers the `tests` output only; the refusal cells live on `testsError`
+      # (`ci/tests-error.nix`). nix-unit comes from the flake's own locked devshell.
+      - run: nix develop --command nix-unit --flake .#testsError
       - run: nix fmt -- --ci

@@ -32,17 +32,30 @@ let
     ;
   inherit (builtins)
     groupBy
+    isString
     lessThan
+    toJSON
+    typeOf
     ;
   inherit (contract) mkClass;
 
   # mkClasses { nodes; keyOf; } -> [Class]. Group node names by their key, one mkClass record per
   # group, classes key-sorted, members sorted. `keyOf name node` MUST return a string (groupBy's
-  # contract — classKey semantics).
+  # contract — classKey semantics). Checked HERE, before groupBy sees it: groupBy's own type error on a
+  # non-string key escapes `tryEval`, where mkClass's refusal of the same caller mistake is a throw.
   mkClasses =
     { nodes, keyOf }:
     let
-      grouped = groupBy (name: keyOf name nodes.${name}) (attrNames nodes);
+      keyAt =
+        name:
+        let
+          key = keyOf name nodes.${name};
+        in
+        if isString key then
+          key
+        else
+          throw "gen-class: mkClasses: keyOf must return a string (got ${typeOf key} for node ${toJSON name})";
+      grouped = groupBy keyAt (attrNames nodes);
     in
     map (
       key:

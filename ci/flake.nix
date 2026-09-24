@@ -53,5 +53,9 @@
         # nothing else.
         prelude = gen-prelude.lib;
       };
+      # Cells whose subject is a refusal MESSAGE live on `testsError`, outside `testModules`: the
+      # batch asserter behind `checks.default` forces every `flake.tests` expr, so a throwing one
+      # would crash that gate rather than fail a cell.
+      extraModules = [ ./tests-error.nix ];
     };
 }
