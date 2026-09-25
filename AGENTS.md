@@ -139,7 +139,7 @@ Read, not exercised: the gen-merge kernel's own firing scope (`coreShortCircuit`
 
 ## Theory
 
-`README.md:249-260` lists "Theoretical foundations" as three flat bullets — no Implements / Informed-by split — restated in the file headers.
+`README.md:252-263` lists "Theoretical foundations" as three flat bullets — no Implements / Informed-by split — restated in the file headers.
 
 **Claims**
 
@@ -177,5 +177,12 @@ Current output (verbatim):
 **Checks.** Test-runner invocation (from the repo root; CI runs the same command with `working-directory: ci`, `.github/workflows/ci.yml:13,18`):
 
 ```sh
-nix flake check ./ci
+nix develop ./ci --command ci                # the suites, guarded
+nix develop ./ci --command ci --tests-error  # the error-plane cells, guarded
+nix flake check ./ci                         # what CI runs; unguarded
 ```
+
+Run the suites locally through `ci`: it refuses when anything under a declared read root is
+unknown to git — any extension or name, `_`-prefixed included — and the remedy is `git add` or a
+move. The bare `nix flake check ./ci` and `nix-unit --flake ./ci#tests` are unguarded: they read a
+git-filtered copy of the tree, so an untracked cell is silently absent and the run stays green.

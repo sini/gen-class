@@ -236,7 +236,10 @@ skip case and the fall-through case are byte-gated in `ci/tests/apply-fixed.nix`
 
 ## Testing
 
-`nix flake check ./ci` runs the nix-unit suites (self-contained — a synthetic corpus, no
+`nix develop ./ci --command ci` runs the nix-unit suites behind the read-roots guard, which refuses
+when anything under a declared read root is unknown to git (any extension or name, `_`-prefixed
+included; `git add` it or move it); the bare `nix flake check ./ci` and `nix-unit --flake ./ci#tests`
+run them unguarded, and an untracked cell is silently absent from them. The suites (self-contained — a synthetic corpus, no
 nix-config/den inputs): `contract` (record constructors + every validation throw), `partition`
 (grouping / determinism / singletons + the corpus self-checks), `apply` (oracle correctness incl a
 deliberately-divergent member, `applyCoreMerge` reconstruction identity, `applyCoreExtend` equivalence
