@@ -79,7 +79,7 @@ let
     };
   };
 
-  # ── applyCoreExtend fixture: a member `system` (evalModules result) whose base defs DIFFER from the
+  # ── applyCoreExtend fixture: a member `artifact` (evalModules result) whose base defs DIFFER from the
   # core, so the force-wrapper winning is observable. `c` is a member-only axis key under the same
   # subtree — it must SURVIVE (core forces per-key, never clobbers the whole projection subtree). ──
   extendClass = mkClass {
@@ -120,7 +120,7 @@ let
   };
   extended = applyCoreExtend {
     core = extendCore;
-    system = baseSystem;
+    artifact = baseSystem;
   };
 
   # dotted-projection extend: proves applyCoreExtend nests core values under the FULL projection path.
@@ -151,7 +151,7 @@ let
   };
   dottedExtended = applyCoreExtend {
     core = dottedCore;
-    system = dottedSystem;
+    artifact = dottedSystem;
   };
 
   # ── invariance probe over the leafLike projections ──

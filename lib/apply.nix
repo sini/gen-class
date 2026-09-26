@@ -131,14 +131,16 @@ let
   applyCoreMerge =
     { core, memberProjection }: core.values // removeAttrs memberProjection core.sharedKeys;
 
-  # applyCoreExtend { core; system; } -> system — the extendModules variant for nixpkgs terminals (the
+  # applyCoreExtend { core; artifact; } -> artifact — the extendModules variant for nixpkgs terminals (the
   # A1 1.89× path). Places the core values, force-wrapped PER KEY, under the projection path; per-key
   # (not whole-subtree) so member axis keys under the same subtree survive. SPINE-TAX CAVEAT (spec
   # §2.3): the member re-runs evalModules — this path DOES yield a deployable toplevel, legitimately, by
   # paying the full per-member re-eval; the fixed-input spine skip is applyCoreFixed (tier 2, Task 7).
+  # `artifact` must be a nixpkgs `evalModules` result: `extendModules` is that engine's API, which
+  # gen-merge does not offer, so this variant is coupled to the nixpkgs module system by construction.
   applyCoreExtend =
-    { core, system }:
-    system.extendModules {
+    { core, artifact }:
+    artifact.extendModules {
       modules = [
         { config = setAttrByPath (splitOnDots core.projection) (mapAttrs (_: v: mkForced v) core.values); }
       ];

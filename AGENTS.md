@@ -73,7 +73,7 @@ The surface is FLAT — `contract // partition // apply // gate` (`lib/default.n
 | ----------------- | ------------------------------------------------------------------------------------------------------------ |
 | `mkCore`          | `{ class : Class; projection : str; projections : memberName -> attrs } -> Core` (the oracle)                |
 | `applyCoreMerge`  | `{ core : Core; memberProjection : attrs } -> attrs` (projection subtree)                                    |
-| `applyCoreExtend` | `{ core : Core; system } -> system.extendModules result`                                                     |
+| `applyCoreExtend` | `{ core : Core; artifact } -> artifact.extendModules result`                                                 |
 | `invariantUnder`  | `{ projection : str; projections; class : Class } -> { invariant : bool; divergingKeys : [str] }`            |
 | `applyCoreFixed`  | `{ core : Core; modules : [module]; engineArgs ? {} } -> { config; options; type; }` (tier 2, needs `merge`) |
 
