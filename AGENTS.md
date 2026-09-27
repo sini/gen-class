@@ -30,7 +30,7 @@ Quoted text is the owner's own `flake.nix` `description` field, verbatim.
 Entry: `inputs.gen-class.lib` (flake), or the root `default.nix` — a **function** of `{ prelude, merge }`, per the gen root-file convention. `merge` is an ORDINARY formal now (owner-ruled arm A,
 `den-hoag-4dfsv`, 2026-09-15) — no longer `merge ? null` at this root, so a caller supplying nothing
 gets the **tier-2** surface (`applyCoreFixed` live) by default; the tier-1 (merge-free) surface now
-requires an explicit `merge = null`. Root `default.nix`'s `wire ? { deps, resolve }: import ./lib deps` formal is the seam that hands this exact substrate attrset to `./lib` as `deps`, and it is
+requires an explicit `merge = null`. Root `default.nix`'s `wire ? { deps, resolve, lock }: import ./lib deps` formal is the seam that hands this exact substrate attrset to `./lib` as `deps`, and it is
 also the only channel by which the shim publishes anything outward — a formal is an INPUT channel
 and cannot carry a value out, so the lock-parameterised `follows` resolver rides out on the same
 record. Overriding `wire` is how a cell reads the shim's own formal-to-path map AND its own
