@@ -27,6 +27,7 @@
 let
   inherit (prelude)
     attrNames
+    checkRequired
     map
     sort
     ;
@@ -43,9 +44,14 @@ let
   # group, classes key-sorted, members sorted. `keyOf name node` MUST return a string (groupBy's
   # contract — classKey semantics). Checked HERE, before groupBy sees it: groupBy's own type error on a
   # non-string key escapes `tryEval`, where mkClass's refusal of the same caller mistake is a throw.
+  # RECORD door (den-hoag-7gp66 P1, R5): all fields required, no `checkOptions` closing — an extra
+  # field is admitted; a missing one refuses BY NAME, catchably, instead of Nix's own uncatchable
+  # "called without required argument".
   mkClasses =
-    { nodes, keyOf }:
+    args:
     let
+      checked = checkRequired "gen-class.mkClasses" [ "nodes" "keyOf" ] args;
+      inherit (checked) nodes keyOf;
       keyAt =
         name:
         let

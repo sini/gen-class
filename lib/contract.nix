@@ -34,6 +34,8 @@
 let
   inherit (prelude)
     attrNames
+    checkOptions
+    checkRequired
     elem
     head
     isAttrs
@@ -53,12 +55,21 @@ let
   # gen-class/class type guard (mkCoreRecord's class validation; internal — kept off the public API).
   isClass = x: isAttrs x && (x._type or null) == "gen-class/class";
 
+  # gen-prelude's shared door checks (den-hoag-7gp66 P1): a mixed door (key/members required,
+  # archetype optional) composes `checkOptions` over `checkRequired` (§v1.2) rather than a native
+  # closed formal, so a missing field or an unknown option refuses BY NAME, catchably.
   mkClass =
-    {
-      key,
-      members,
-      archetype ? null,
-    }:
+    args:
+    let
+      checked = checkOptions "gen-class.mkClass" [
+        "key"
+        "members"
+        "archetype"
+      ] (checkRequired "gen-class.mkClass" [ "key" "members" ] args);
+      key = checked.key;
+      members = checked.members;
+      archetype = checked.archetype or null;
+    in
     if !isString key then
       throw "gen-class: mkClass: key must be a string (got ${typeOf key})"
     else if !isList members then
@@ -74,13 +85,24 @@ let
         archetype = if archetype == null then head (sort lessThan members) else archetype;
       };
 
+  # RECORD door (den-hoag-7gp66 P1, R5): all fields required, no `checkOptions` closing — an extra
+  # field is admitted and never reported (R5's stated price); a missing one refuses BY NAME.
   mkCoreRecord =
-    {
-      class,
-      projection,
-      sharedKeys,
-      values,
-    }:
+    args:
+    let
+      checked = checkRequired "gen-class.mkCoreRecord" [
+        "class"
+        "projection"
+        "sharedKeys"
+        "values"
+      ] args;
+      inherit (checked)
+        class
+        projection
+        sharedKeys
+        values
+        ;
+    in
     if !isClass class then
       throw "gen-class: mkCoreRecord: class must be a gen-class/class record"
     else if !isString projection then

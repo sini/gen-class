@@ -28,6 +28,7 @@ let
   inherit (prelude)
     all
     attrNames
+    checkRequired
     isAttrs
     length
     map
@@ -59,12 +60,14 @@ let
   # core-applied CANDIDATE is byte-identical to the REAL member (the digest half). coreCount =
   # length core.sharedKeys — evidence of how many keys the core CLAIMED to share (informational; the
   # gate, not the count, is authority). RECORD ONLY, never throws on the outcome.
+  # RECORD door (den-hoag-7gp66 P1, R5): all fields required, no `checkOptions` closing — an extra
+  # field is admitted; a missing one refuses BY NAME, catchably.
   gateCore =
-    {
-      core,
-      candidate,
-      real,
-    }:
+    args:
+    let
+      checked = checkRequired "gen-class.gateCore" [ "core" "candidate" "real" ] args;
+      inherit (checked) core candidate real;
+    in
     if !isCore core then
       throw "gen-class: gateCore: core must be a gen-class/core record"
     else
@@ -95,13 +98,12 @@ let
   # equality) or { band = <float>; } (cross-build relative tolerance). Per-counter verdict records
   # { counter; expected; actual; delta; pass; } over the (identical) counter sets, sorted by name;
   # overall `pass` = all verdicts pass. `delta` is the relative delta (informational in exact mode).
+  # RECORD door (den-hoag-7gp66 P1, R5): all fields required, no `checkOptions` closing.
   compareCounters =
-    {
-      expected,
-      actual,
-      mode,
-    }:
+    args:
     let
+      checked = checkRequired "gen-class.compareCounters" [ "expected" "actual" "mode" ] args;
+      inherit (checked) expected actual mode;
       isExact = mode == "exact";
       isBand = isAttrs mode && mode ? band;
       band = if isBand then mode.band else null;
