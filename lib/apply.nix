@@ -176,7 +176,12 @@ let
       inherit (oracle "invariantUnder" { inherit class projections; }) archProj agrees;
       divergingKeys = sort lessThan (filter (k: !(agrees k)) (attrNames archProj));
     in
-    {
+    # `seq checked` (den-hoag-7gp66 P1 lazy-doors fix): the return was a bare attrset literal, and
+    # `divergingKeys` never touches `checked.projection` (unused by this door's own body), so
+    # neither field of the return forced `checked` — `checkRequired` sat unread until a caller
+    # forced `.invariant`/`.divergingKeys`, admitting a bad record at the door's own application.
+    # Same idiom `applyCoreFixed` below already uses.
+    builtins.seq checked {
       invariant = divergingKeys == [ ];
       inherit divergingKeys;
     };
