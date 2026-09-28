@@ -28,7 +28,6 @@ let
     checkRequired
     filter
     isAttrs
-    isFunction
     isList
     listToAttrs
     map
@@ -61,10 +60,12 @@ let
   splitOnDots = s: filter isString (split "\\." s);
 
   # Whether `toJSON v` returns rather than aborts: a function anywhere toJSON walks is an evaluator
-  # error that escapes `tryEval`. Mirrors toJSON's own walk — `__toString` first, then `outPath`.
+  # error that escapes `tryEval`. Mirrors toJSON's own walk — `__toString` first, then `outPath` —
+  # so its function test is the BUILTIN one: a functor is an attrset to `toJSON`, and one carrying
+  # `__toString` serialises (gen-prelude's `isFunction` is nixpkgs' functor-aware reader).
   serialisable =
     v:
-    if isFunction v then
+    if builtins.isFunction v then
       false
     else if isAttrs v then
       v ? __toString || (if v ? outPath then serialisable v.outPath else all serialisable (attrValues v))

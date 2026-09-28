@@ -320,4 +320,36 @@ in
       expected = [ "path" ];
     };
   };
+
+  # The oracle's serialisability guard mirrors `toJSON`'s own walk, whose function test is the
+  # BUILTIN one: a functor carrying `__toString` renders through `__toString`, so it is comparable
+  # and kept. gen-prelude's `isFunction` became nixpkgs' functor-aware reader (den-hoag-7gp66
+  # P2-OQ15 arm (i)); read through it, the guard would refuse this value as a function.
+  flake.tests.apply-oracle-functor = {
+    test-a-functor-toJSON-renders-is-kept =
+      let
+        rendered = {
+          __functor = _: x: x;
+          __toString = _: "rendered";
+        };
+      in
+      {
+        expr =
+          (mkCore {
+            class = mkClass {
+              key = "h";
+              members = [
+                "blade"
+                "cortex"
+              ];
+            };
+            projection = "p";
+            projections = {
+              blade.s = rendered;
+              cortex.s = rendered;
+            };
+          }).sharedKeys;
+        expected = [ "s" ];
+      };
+  };
 }
