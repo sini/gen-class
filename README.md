@@ -68,6 +68,18 @@ dep (gen-prelude, the pure utility base); `merge` is [gen-merge](https://github.
 from the core). The gate, not the key, is authority: a projection is shared only when `gateCore`'s
 sha256 over canonical `toJSON` matches.
 
+## Share class, not delivery class
+
+`keyOf`'s partition is a **share class**: an equivalence over members computed from a caller-supplied
+key, existing purely as an optimization opportunity for reuse — the byte gate is what authorises a
+share, the key only narrows the candidates (the row above). This is a different concept from a
+**delivery class**: a declared target that a terminal realizes, addressed by an aspect's `class` key
+category and brought into existence by a realization step — a projection over declared content, folded
+per class (see [gen-delivery](https://github.com/sini/gen-delivery)). The two are related — both
+partition a node population — but never identical: a share class can span members of different
+delivery classes, or fail to unify members that belong to the same one. gen-class computes only the
+share class; the delivery class and its realization sit outside this library's public surface.
+
 ## The three planes (honest scope, with the A1 numbers)
 
 The class-share win is **real and byte-identical but plane-shaped** — the same class-level work reads
