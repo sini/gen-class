@@ -120,7 +120,7 @@ let
   };
   extended = applyCoreExtend {
     core = extendCore;
-    artifact = baseSystem;
+    extend = baseSystem.extendModules;
   };
 
   # dotted-projection extend: proves applyCoreExtend nests core values under the FULL projection path.
@@ -151,7 +151,7 @@ let
   };
   dottedExtended = applyCoreExtend {
     core = dottedCore;
-    artifact = dottedSystem;
+    extend = dottedSystem.extendModules;
   };
 
   # ── invariance probe over the leafLike projections ──

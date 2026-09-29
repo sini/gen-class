@@ -140,25 +140,33 @@ let
     in
     core.values // removeAttrs memberProjection core.sharedKeys;
 
-  # applyCoreExtend { core; artifact; } -> artifact — the extendModules variant for nixpkgs terminals (the
+  # applyCoreExtend { core; extend; } -> artifact — the extendModules variant for nixpkgs terminals (the
   # A1 1.89× path). Places the core values, force-wrapped PER KEY, under the projection path; per-key
   # (not whole-subtree) so member axis keys under the same subtree survive. SPINE-TAX CAVEAT (spec
   # §2.3): the member re-runs evalModules — this path DOES yield a deployable toplevel, legitimately, by
   # paying the full per-member re-eval; the fixed-input spine skip is applyCoreFixed (tier 2, Task 7).
-  # `artifact` must be a nixpkgs `evalModules` result: `extendModules` is that engine's API, which
-  # gen-merge does not offer, so this variant is coupled to the nixpkgs module system by construction.
+  # `extend` is the hosted module system's extension function, supplied by the caller; gen-class names
+  # none (ADR-0027: the evaluator's location is the caller's). For a nixpkgs `evalModules` result the
+  # caller hands its `extendModules` unwrapped, and this construct calls it with `{ modules }`. The
+  # `mkForced` record is hand-built in the `_type = "override"` encoding gen-merge also reads, so the
+  # core module is engine-neutral. Totality of `extend`: a non-function is refused by name, catchably;
+  # a functor is admitted; its return is opaque; a pattern-formal `extend` lacking `modules` is Nix's
+  # own abort.
   # RECORD door (den-hoag-7gp66 P1, R5): all fields required, no `checkOptions` closing.
   applyCoreExtend =
     args:
     let
-      checked = checkRequired "gen-class.applyCoreExtend" [ "core" "artifact" ] args;
-      inherit (checked) core artifact;
+      checked = checkRequired "gen-class.applyCoreExtend" [ "core" "extend" ] args;
+      inherit (checked) core extend;
     in
-    artifact.extendModules {
-      modules = [
-        { config = setAttrByPath (splitOnDots core.projection) (mapAttrs (_: v: mkForced v) core.values); }
-      ];
-    };
+    if !(builtins.isFunction extend || (builtins.isAttrs extend && extend ? __functor)) then
+      throw "gen-class.applyCoreExtend: `extend` must be a function taking { modules } (e.g. an evaluation result's `extendModules`), not a ${builtins.typeOf extend}"
+    else
+      extend {
+        modules = [
+          { config = setAttrByPath (splitOnDots core.projection) (mapAttrs (_: v: mkForced v) core.values); }
+        ];
+      };
 
   # invariantUnder { projection; projections; class; } -> { invariant; divergingKeys; } — the class-
   # invariance probe (7b step 4 lifted). divergingKeys = the archetype keys that are NOT byte-identical

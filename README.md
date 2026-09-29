@@ -130,8 +130,8 @@ cortexReconstructed = applyCoreMerge { inherit core; memberProjection = cortexUn
 the full per-member re-eval (the A1 1.89× path):
 
 ```nix
-artifact' = applyCoreExtend { inherit core; artifact = cortexArtifact; };
-# force-wraps core.values per key under core.projection via artifact.extendModules
+artifact' = applyCoreExtend { inherit core; extend = cortexArtifact.extendModules; };
+# force-wraps core.values per key under core.projection via the caller-supplied extend
 ```
 
 **apply (invariance probe)** — guard a leaf you might naively assume shared (the `system.path` lesson):

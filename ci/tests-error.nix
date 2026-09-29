@@ -57,7 +57,8 @@ let
   # Minimal shared fixtures for the door-refusals family below: `blade`/`cortex` agree on `a`, so
   # `mkCore` yields a one-key core to feed `applyCoreMerge` / `applyCoreExtend` / `invariantUnder` /
   # `gateCore`. `fakeArtifact` stands in for a nixpkgs `evalModules` result — just enough surface
-  # (`.extendModules`) for `applyCoreExtend`'s extra-field-admitted cell to evaluate clean.
+  # (`.extendModules`, handed as `extend`) for `applyCoreExtend`'s extra-field-admitted cell to evaluate
+  # clean, and the artifact itself, handed where `extend` belongs, is the honest non-function mistake.
   sharedProjections = {
     blade.a = 1;
     cortex.a = 1;
@@ -197,15 +198,22 @@ in
       expr = forced (applyCoreExtend {
         core = core1;
       });
-      expectedError = thrown "gen-class.applyCoreExtend: required field 'artifact' is missing (required: 'core', 'artifact') (in prelude.checkRequired)";
+      expectedError = thrown "gen-class.applyCoreExtend: required field 'extend' is missing (required: 'core', 'extend') (in prelude.checkRequired)";
     };
     test-applyCoreExtend-extra-field-admitted = {
       expr = admitted (applyCoreExtend {
         core = core1;
-        artifact = fakeArtifact;
+        extend = fakeArtifact.extendModules;
         extra = 1;
       });
       expected = true;
+    };
+    test-applyCoreExtend-non-function-extend-named = {
+      expr = forced (applyCoreExtend {
+        core = core1;
+        extend = fakeArtifact;
+      });
+      expectedError = thrown "gen-class.applyCoreExtend: `extend` must be a function taking { modules } (e.g. an evaluation result's `extendModules`), not a set";
     };
 
     test-invariantUnder-missing-field-named = {
