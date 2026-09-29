@@ -140,7 +140,7 @@ let
     in
     core.values // removeAttrs memberProjection core.sharedKeys;
 
-  # applyCoreExtend { core; extend; } -> artifact — the extendModules variant for nixpkgs terminals (the
+  # applyCoreExtend { core; extend; } -> artifact — the variant over a caller-supplied `extend` (the
   # A1 1.89× path). Places the core values, force-wrapped PER KEY, under the projection path; per-key
   # (not whole-subtree) so member axis keys under the same subtree survive. SPINE-TAX CAVEAT (spec
   # §2.3): the member re-runs evalModules — this path DOES yield a deployable toplevel, legitimately, by
