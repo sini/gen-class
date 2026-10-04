@@ -237,16 +237,10 @@ let
           path = splitOnDots core.projection;
           coreModule = {
             options = setAttrByPath path (merge.mkOption { });
-            config = setAttrByPath path (merge.mkCoreValue { inherit (core) digest values; });
+            config = setAttrByPath path (merge.mkCoreValue core.digest core.values);
           };
         in
-        merge.evalModuleTree (
-          engineArgs
-          // {
-            coreShortCircuit = true;
-            modules = modules ++ [ coreModule ];
-          }
-        )
+        merge.evalModuleTree (engineArgs // { coreShortCircuit = true; }) (modules ++ [ coreModule ])
     );
 in
 {

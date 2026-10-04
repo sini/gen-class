@@ -181,7 +181,7 @@ in
   inherit core;
   modules = [ memberAxisModule ];     # members contribute AXIS locs; coreModule carries the core-projection def
 }).config
-# builds merge.evalModuleTree { coreShortCircuit = true; modules = modules ++ [ coreModule ]; }
+# builds merge.evalModuleTree { coreShortCircuit = true; } (modules ++ [ coreModule ])
 # where the short-circuit returns core.values directly for the sole-def core loc — byte-identical to the
 # full merge (a WRONG core surfaces at gateCore, not here).
 ```

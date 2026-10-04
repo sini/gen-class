@@ -58,7 +58,7 @@ let
     options = setPath projPath (genMerge.mkOption { });
     config = setPath projPath core.values;
   };
-  refConfig = modules: (genMerge.evalModuleTree { inherit modules; }).config;
+  refConfig = modules: (genMerge.evalModuleTree { } modules).config;
 
   # ══ fixed-skip ═════════════════════════════════════════════════════════════
   # A member contributing an AXIS loc (a different option) — the contract's normal shape (members carry
@@ -100,13 +100,10 @@ let
     }).config;
   offRunsSpine =
     didThrow
-      (genMerge.evalModuleTree {
-        coreShortCircuit = false;
-        modules = [
-          boomDecl
-          { config.agent.opts = genMerge.mkCoreValue { inherit (agentCore) digest values; }; }
-        ];
-      }).config;
+      (genMerge.evalModuleTree { coreShortCircuit = false; } [
+        boomDecl
+        { config.agent.opts = genMerge.mkCoreValue agentCore.digest agentCore.values; }
+      ]).config;
 
   # ══ fixed-fall — a member ALSO defines the core loc (with a real anything type) ═════════════════════
   ftMember = {
