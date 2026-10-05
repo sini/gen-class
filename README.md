@@ -118,10 +118,9 @@ in
 **partition** — group nodes, singletons pass through as 1-member classes:
 
 ```nix
-classes = mkClasses {
-  nodes  = { blade = { class = "host"; }; cortex = { class = "host"; }; lonely = { class = "solo"; }; };
-  keyOf  = name: node: node.class;    # classKey discipline: MUST return a string
-};
+classes = mkClasses
+  (name: node: node.class)            # keyOf, first — classKey discipline: MUST return a string
+  { blade = { class = "host"; }; cortex = { class = "host"; }; lonely = { class = "solo"; }; };
 # ⇒ [ { key="host"; members=["blade" "cortex"]; archetype="blade"; … }
 #      { key="solo"; members=["lonely"]; … } ]
 ```
@@ -134,7 +133,7 @@ core = mkCore {
   projection  = "systemd.units";      # names the projected subtree (documentation, not a path splitter here)
   projections = { blade = bladeUnits; cortex = cortexUnits; };   # memberName → projection attrs
 };
-cortexReconstructed = applyCoreMerge { inherit core; memberProjection = cortexUnits; };
+cortexReconstructed = applyCoreMerge core cortexUnits;   # the core first, the member's projection last
 # ⇒ core.values // (cortex's own keys minus the shared ones)  — the projection SUBTREE, not a toplevel
 ```
 
@@ -142,28 +141,27 @@ cortexReconstructed = applyCoreMerge { inherit core; memberProjection = cortexUn
 the full per-member re-eval (the A1 1.89× path):
 
 ```nix
-artifact' = applyCoreExtend { inherit core; extend = cortexArtifact.extendModules; };
+artifact' = applyCoreExtend core cortexArtifact.extendModules;
 # force-wraps core.values per key under core.projection via the caller-supplied extend
 ```
 
 **apply (invariance probe)** — guard a leaf you might naively assume shared (the `system.path` lesson):
 
 ```nix
-invariantUnder { projection = "system.path"; projections = hostProjections; class = hostClass; }
+invariantUnder { class = hostClass; projection = "system.path"; projections = hostProjections; }
 # ⇒ { invariant = false; divergingKeys = [ … ]; }  — a leaf that is host-specific, not shareable
 ```
 
 **gate** — authorise the reuse (hard-fail on any byte divergence):
 
 ```nix
-g = gateCore { inherit core; candidate = cortexReconstructed; real = cortexUnits; };
+g = gateCore core { candidate = cortexReconstructed; real = cortexUnits; };   # the core, then the compared pair
 # ⇒ { gate = true; candidateDigest; realDigest; coreCount = length core.sharedKeys; }
 # ci drivers hard-fail on `gate == false`; there is NO gate-free reuse path in this API (spec §2.4).
 
-compareCounters {                     # the pure half of the two-tier STOP-on-diff policy
-  expected = { nrFunctionCalls = 46261629; };
+compareCounters { band = 0.001; } {  # the pure half of the two-tier STOP-on-diff policy; the mode
+  expected = { nrFunctionCalls = 46261629; };   # first: "exact" (same-build) | { band } (cross-build)
   actual   = { nrFunctionCalls = 46261621; };
-  mode     = { band = 0.001; };       # "exact" (same-build) | { band } (cross-build, ±0.1% default)
 };
 # ⇒ { pass = true; verdicts = [ { counter; expected; actual; delta; pass; } ]; }
 ```
@@ -177,11 +175,10 @@ let
     merge   = genMerge;               # gen-merge.lib — REQUIRED for tier 2 (else applyCoreFixed throws)
   };
 in
-(genClass.applyCoreFixed {
-  inherit core;
-  modules = [ memberAxisModule ];     # members contribute AXIS locs; coreModule carries the core-projection def
-}).config
-# builds merge.evalModuleTree { coreShortCircuit = true; } (modules ++ [ coreModule ])
+(genClass.applyCoreFixed { } core [
+  memberAxisModule                    # members contribute AXIS locs; coreModule carries the core-projection def
+]).config                             # options first (`{ engineArgs ? { }; }`), then the core, then the modules
+# builds merge.evalModuleTree (engineArgs // { coreShortCircuit = true; }) (modules ++ [ coreModule ])
 # where the short-circuit returns core.values directly for the sole-def core loc — byte-identical to the
 # full merge (a WRONG core surfaces at gateCore, not here).
 ```

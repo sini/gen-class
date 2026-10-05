@@ -28,7 +28,6 @@ let
   inherit (prelude)
     all
     attrNames
-    checkRequired
     isAttrs
     length
     map
@@ -54,32 +53,43 @@ let
     core: candidate:
     all (k: (candidate ? ${k}) && toJSON candidate.${k} == toJSON core.values.${k}) core.sharedKeys;
 
-  # gateCore { core; candidate; real; } -> { gate; candidateDigest; realDigest; coreCount; }. The
+  # gateCore core { candidate; real; } -> { gate; candidateDigest; realDigest; coreCount; }. The
   # hard-fail byte gate: `gate` is true iff (a) `candidate` actually carries the SUPPLIED core's values
   # at every key core claims to share (coreParticipates — the core-applied half) AND (b) the
   # core-applied CANDIDATE is byte-identical to the REAL member (the digest half). coreCount =
   # length core.sharedKeys — evidence of how many keys the core CLAIMED to share (informational; the
   # gate, not the count, is authority). RECORD ONLY, never throws on the outcome.
-  # RECORD door (den-hoag-7gp66 P1, R5): all fields required, no `checkOptions` closing — an extra
-  # field is admitted; a missing one refuses BY NAME, catchably.
+  # `core` FIRST, THEN ONE RECORD (den-hoag-7gp66 P2, rules 4 and 5(b)): the core is the
+  # configuration the decision is asked under, so it is positional and first. `candidate` and `real`
+  # are two artefacts of one sort, compared, with no natural order between them (R7(b), the owner's
+  # `{ actual; expected; }`), so they stay one required record, named at the call site. That record
+  # is a `prelude.door`, bound once here: a missing field is refused by name and catchably at its
+  # application; an extra field is admitted (R5).
+  gatePair = prelude.door {
+    name = "gen-class.gateCore";
+    required = [
+      "candidate"
+      "real"
+    ];
+    open = true;
+  };
   gateCore =
-    args:
-    let
-      checked = checkRequired "gen-class.gateCore" [ "core" "candidate" "real" ] args;
-      inherit (checked) core candidate real;
-    in
-    if !isCore core then
-      throw "gen-class: gateCore: core must be a gen-class/core record"
-    else
-      let
-        candidateDigest = digestOf candidate;
-        realDigest = digestOf real;
-      in
-      {
-        gate = coreParticipates core candidate && candidateDigest == realDigest;
-        inherit candidateDigest realDigest;
-        coreCount = length core.sharedKeys;
-      };
+    core:
+    gatePair (
+      { candidate, real, ... }:
+      if !isCore core then
+        throw "gen-class: gateCore: core must be a gen-class/core record"
+      else
+        let
+          candidateDigest = digestOf candidate;
+          realDigest = digestOf real;
+        in
+        {
+          gate = coreParticipates core candidate && candidateDigest == realDigest;
+          inherit candidateDigest realDigest;
+          coreCount = length core.sharedKeys;
+        }
+    );
 
   # Relative delta = |actual − expected| / max(|expected|, 1). The max guard keeps a ZERO baseline
   # well-defined (any nonzero drift from zero exceeds any sub-unit band) without a magic sentinel;
@@ -94,44 +104,56 @@ let
     in
     1.0 * d / (if denom < 1 then 1 else denom);
 
-  # compareCounters { expected; actual; mode; } -> { pass; verdicts; }. `mode` is "exact" (same-build
+  # compareCounters mode { expected; actual; } -> { pass; verdicts; }. `mode` is "exact" (same-build
   # equality) or { band = <float>; } (cross-build relative tolerance). Per-counter verdict records
   # { counter; expected; actual; delta; pass; } over the (identical) counter sets, sorted by name;
   # overall `pass` = all verdicts pass. `delta` is the relative delta (informational in exact mode).
-  # RECORD door (den-hoag-7gp66 P1, R5): all fields required, no `checkOptions` closing.
+  # `mode` FIRST, THEN ONE RECORD (den-hoag-7gp66 P2, rules 4 and 5(b)): the mode is configuration and
+  # positional; `expected` and `actual` are the owner's own R7(b) pair — one sort, no natural order —
+  # so they stay one required record, a `prelude.door` bound once here (missing field refused by
+  # name, catchably; extra admitted, R5).
+  countersPair = prelude.door {
+    name = "gen-class.compareCounters";
+    required = [
+      "expected"
+      "actual"
+    ];
+    open = true;
+  };
   compareCounters =
-    args:
-    let
-      checked = checkRequired "gen-class.compareCounters" [ "expected" "actual" "mode" ] args;
-      inherit (checked) expected actual mode;
-      isExact = mode == "exact";
-      isBand = isAttrs mode && mode ? band;
-      band = if isBand then mode.band else null;
-      verdictFor =
-        c:
-        let
-          exp = expected.${c};
-          act = actual.${c};
-          d = relDelta exp act;
-        in
+    mode:
+    countersPair (
+      { expected, actual, ... }:
+      let
+        isExact = mode == "exact";
+        isBand = isAttrs mode && mode ? band;
+        band = if isBand then mode.band else null;
+        verdictFor =
+          c:
+          let
+            exp = expected.${c};
+            act = actual.${c};
+            d = relDelta exp act;
+          in
+          {
+            counter = c;
+            expected = exp;
+            actual = act;
+            delta = d;
+            pass = if isExact then act == exp else d <= band;
+          };
+        verdicts = map verdictFor (attrNames expected);
+      in
+      if !isExact && !isBand then
+        throw "gen-class: compareCounters: mode must be \"exact\" or { band = <float>; } (got ${toJSON mode})"
+      else if attrNames expected != attrNames actual then
+        throw "gen-class: compareCounters: expected and actual must share one counter set (${toJSON (attrNames expected)} vs ${toJSON (attrNames actual)})"
+      else
         {
-          counter = c;
-          expected = exp;
-          actual = act;
-          delta = d;
-          pass = if isExact then act == exp else d <= band;
-        };
-      verdicts = map verdictFor (attrNames expected);
-    in
-    if !isExact && !isBand then
-      throw "gen-class: compareCounters: mode must be \"exact\" or { band = <float>; } (got ${toJSON mode})"
-    else if attrNames expected != attrNames actual then
-      throw "gen-class: compareCounters: expected and actual must share one counter set (${toJSON (attrNames expected)} vs ${toJSON (attrNames actual)})"
-    else
-      {
-        inherit verdicts;
-        pass = all (v: v.pass) verdicts;
-      };
+          inherit verdicts;
+          pass = all (v: v.pass) verdicts;
+        }
+    );
 in
 {
   inherit gateCore compareCounters;

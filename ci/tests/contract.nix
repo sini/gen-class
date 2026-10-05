@@ -9,13 +9,10 @@ let
   # `(tryEval (deepSeq e null)).success == false` pattern, inverted to read as "did throw".
   didThrow = e: !(builtins.tryEval (builtins.deepSeq e null)).success;
 
-  cls = mkClass {
-    key = "k";
-    members = [
-      "a"
-      "b"
-    ];
-  };
+  cls = mkClass { } "k" [
+    "a"
+    "b"
+  ];
 
   vals = {
     a = 1;
@@ -43,13 +40,10 @@ in
   # ── mkClass: happy paths + the deterministic archetype rule ──
   flake.tests.contract-class = {
     test-record-shape = {
-      expr = mkClass {
-        key = "hosts";
-        members = [
-          "b"
-          "a"
-        ];
-      };
+      expr = mkClass { } "hosts" [
+        "b"
+        "a"
+      ];
       # members preserved as-given (partition sorts upstream); archetype = head (sort members).
       expected = {
         _type = "gen-class/class";
@@ -65,80 +59,56 @@ in
     # DETERMINISTIC RULE: default archetype = head (sort lessThan members), input-order independent.
     test-default-archetype-lexicographic = {
       expr =
-        (mkClass {
-          key = "k";
-          members = [
-            "cortex"
-            "blade"
-            "axon"
-          ];
-        }).archetype;
+        (mkClass { } "k" [
+          "cortex"
+          "blade"
+          "axon"
+        ]).archetype;
       expected = "axon";
     };
     test-default-archetype-permutation-invariant = {
       expr =
-        (mkClass {
-          key = "k";
-          members = [
-            "cortex"
-            "blade"
-            "axon"
-          ];
-        }).archetype == (mkClass {
-          key = "k";
-          members = [
-            "blade"
-            "axon"
-            "cortex"
-          ];
-        }).archetype;
+        (mkClass { } "k" [
+          "cortex"
+          "blade"
+          "axon"
+        ]).archetype == (mkClass { } "k" [
+          "blade"
+          "axon"
+          "cortex"
+        ]).archetype;
       expected = true;
     };
     test-explicit-archetype-honored = {
       expr =
-        (mkClass {
-          key = "k";
-          members = [
-            "a"
-            "b"
-            "c"
-          ];
-          archetype = "c";
-        }).archetype;
+        (mkClass { archetype = "c"; } "k" [
+          "a"
+          "b"
+          "c"
+        ]).archetype;
       expected = "c";
     };
 
     # every validation throw
     test-throws-non-string-key = {
-      expr = didThrow (mkClass {
-        key = 5;
-        members = [ "a" ];
-      });
+      expr = didThrow (mkClass { } 5 [ "a" ]);
       expected = true;
     };
     test-throws-empty-members = {
-      expr = didThrow (mkClass {
-        key = "k";
-        members = [ ];
-      });
+      expr = didThrow (mkClass { } "k" [ ]);
       expected = true;
     };
     test-throws-members-not-list = {
-      expr = didThrow (mkClass {
-        key = "k";
-        members = "a";
-      });
+      expr = didThrow (mkClass { } "k" "a");
       expected = true;
     };
     test-throws-archetype-not-member = {
-      expr = didThrow (mkClass {
-        key = "k";
-        members = [
+      expr = didThrow (
+        mkClass { archetype = "z"; } "k" [
           "a"
           "b"
-        ];
-        archetype = "z";
-      });
+        ]
+      );
       expected = true;
     };
   };

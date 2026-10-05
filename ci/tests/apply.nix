@@ -24,14 +24,8 @@ let
   inherit (builtins) toJSON;
 
   # ── classes over the corpus (archetype = mkClass's deterministic default: head of sorted members) ──
-  agentClass = mkClass {
-    key = "agent";
-    members = corpus.agents.members;
-  }; # archetype = agent-0
-  heteroClass = mkClass {
-    key = "host";
-    members = corpus.hetero.members;
-  }; # archetype = blade
+  agentClass = mkClass { } "agent" corpus.agents.members; # archetype = agent-0
+  heteroClass = mkClass { } "host" corpus.hetero.members; # archetype = blade
 
   agentCore = mkCore {
     class = agentClass;
@@ -49,10 +43,7 @@ let
       opt00 = "TAMPERED";
     };
   };
-  divergentClass = mkClass {
-    key = "agent";
-    members = corpus.agents.members ++ [ "agent-6" ];
-  };
+  divergentClass = mkClass { } "agent" (corpus.agents.members ++ [ "agent-6" ]);
   divergentCore = mkCore {
     class = divergentClass;
     inherit (corpus.agents) projection;
@@ -61,13 +52,10 @@ let
 
   # Empty-intersection core: two members disagree on their only key ⇒ sharedKeys = [] ⇒ apply = identity.
   emptyCore = mkCore {
-    class = mkClass {
-      key = "k";
-      members = [
-        "p"
-        "q"
-      ];
-    };
+    class = mkClass { } "k" [
+      "p"
+      "q"
+    ];
     projection = "sub";
     projections = {
       p = {
@@ -82,13 +70,10 @@ let
   # ── applyCoreExtend fixture: a member `artifact` (evalModules result) whose base defs DIFFER from the
   # core, so the force-wrapper winning is observable. `c` is a member-only axis key under the same
   # subtree — it must SURVIVE (core forces per-key, never clobbers the whole projection subtree). ──
-  extendClass = mkClass {
-    key = "k";
-    members = [
-      "m1"
-      "m2"
-    ];
-  }; # archetype = m1
+  extendClass = mkClass { } "k" [
+    "m1"
+    "m2"
+  ]; # archetype = m1
   extendCore = mkCore {
     class = extendClass;
     projection = "sub";
@@ -118,17 +103,11 @@ let
       }
     ];
   };
-  extended = applyCoreExtend {
-    core = extendCore;
-    extend = baseSystem.extendModules;
-  };
+  extended = applyCoreExtend extendCore baseSystem.extendModules;
 
   # dotted-projection extend: proves applyCoreExtend nests core values under the FULL projection path.
   dottedCore = mkCore {
-    class = mkClass {
-      key = "k";
-      members = [ "m1" ];
-    };
+    class = mkClass { } "k" [ "m1" ];
     projection = "x.y";
     projections = {
       m1 = {
@@ -149,10 +128,7 @@ let
       }
     ];
   };
-  dottedExtended = applyCoreExtend {
-    core = dottedCore;
-    extend = dottedSystem.extendModules;
-  };
+  dottedExtended = applyCoreExtend dottedCore dottedSystem.extendModules;
 
   # ── invariance probe over the leafLike projections ──
   agentProbe = invariantUnder {
@@ -230,20 +206,16 @@ in
     test-recon-identity-agents = {
       expr = builtins.all (
         m:
-        toJSON (applyCoreMerge {
-          core = agentCore;
-          memberProjection = corpus.agents.projections.${m};
-        }) == toJSON corpus.agents.projections.${m}
+        toJSON (applyCoreMerge agentCore (corpus.agents.projections.${m}))
+        == toJSON corpus.agents.projections.${m}
       ) corpus.agents.members;
       expected = true;
     };
     test-recon-identity-hetero = {
       expr = builtins.all (
         m:
-        toJSON (applyCoreMerge {
-          core = heteroCore;
-          memberProjection = corpus.hetero.projections.${m};
-        }) == toJSON corpus.hetero.projections.${m}
+        toJSON (applyCoreMerge heteroCore (corpus.hetero.projections.${m}))
+        == toJSON corpus.hetero.projections.${m}
       ) corpus.hetero.members;
       expected = true;
     };
@@ -252,23 +224,20 @@ in
     # is OVERRIDDEN by the core value — removeAttrs strips the member's copy, core.values supplies it.
     test-core-owns-shared-keys = {
       expr =
-        (applyCoreMerge {
-          core = heteroCore;
-          memberProjection = corpus.hetero.projections.blade // {
+        (applyCoreMerge heteroCore (
+          corpus.hetero.projections.blade
+          // {
             h00 = "member-clobbered";
-          };
-        }).h00;
+          }
+        )).h00;
       expected = corpus.hetero.projections.blade.h00; # the archetype's shared value, not "member-clobbered"
     };
 
     # empty core ⇒ applyCoreMerge is IDENTITY (removeAttrs member [] // {} == member).
     test-empty-core-merge-is-identity = {
-      expr = applyCoreMerge {
-        core = emptyCore;
-        memberProjection = {
-          x = 2;
-          y = 3;
-        };
+      expr = applyCoreMerge emptyCore {
+        x = 2;
+        y = 3;
       };
       expected = {
         x = 2;
@@ -336,13 +305,10 @@ in
       {
         expr =
           (mkCore {
-            class = mkClass {
-              key = "h";
-              members = [
-                "blade"
-                "cortex"
-              ];
-            };
+            class = mkClass { } "h" [
+              "blade"
+              "cortex"
+            ];
             projection = "p";
             projections = {
               blade.s = rendered;

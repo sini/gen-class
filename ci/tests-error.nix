@@ -37,13 +37,10 @@ let
   # `forced`'s positive twin: the call evaluates clean rather than aborting.
   admitted = v: (builtins.tryEval (builtins.deepSeq v v)).success;
 
-  cls = mkClass {
-    key = "h";
-    members = [
-      "blade"
-      "cortex"
-    ];
-  };
+  cls = mkClass { } "h" [
+    "blade"
+    "cortex"
+  ];
   # `cortex` is a class member with no projection.
   uncovered = {
     blade.a = 1;
@@ -75,10 +72,7 @@ in
 {
   flake.testsError.refusals = {
     test-mkClasses-refuses-non-string-key = {
-      expr = forced (mkClasses {
-        nodes.web = { };
-        keyOf = _: _: 1;
-      });
+      expr = forced (mkClasses (_: _: 1) { web = { }; });
       expectedError = thrown ''gen-class: mkClasses: keyOf must return a string (got int for node "web")'';
     };
     test-mkCore-refuses-uncovered-member = {
@@ -115,17 +109,17 @@ in
     };
   };
 
-  # ── door-refusals (den-hoag-7gp66 P1) ──
-  # Every gen-class door composes `checkOptions`/`checkRequired` (gen-prelude 0ac7b66) over its
-  # formals instead of a native closed pattern, so a missing required field is refused BY NAME,
-  # catchably, instead of Nix's own uncatchable "called without required argument". RECORD-class
-  # doors (all fields required, no optional) stay OPEN past their required set — R5's stated price,
-  # an extra field is admitted and never reported — so each gets a paired extra-field-admitted
-  # control; MIXED doors (some fields optional) close the whole surface instead, so each gets a
-  # paired unknown-option-refused cell. `admitted` is `forced`'s positive twin — the call evaluates
-  # clean rather than aborting.
+  # ── door-refusals (den-hoag-7gp66 P2) ──
+  # Every gen-class step that takes a RECORD is a `prelude.door`, so a missing required field or an
+  # unknown option is refused BY NAME, catchably, at that step's own application. RECORD steps
+  # (`mkCoreRecord`, `mkCore`, `invariantUnder`, and the pair records of `gateCore core` and
+  # `compareCounters mode`) stay OPEN past their required set — R5's stated price, an extra field is
+  # admitted and never reported — so each gets a paired extra-field-admitted control. OPTIONS steps
+  # (`mkClass`, `applyCoreFixed`) are closed, so each gets an unknown-option cell, and the old
+  # one-record shape is refused by name at its first application: its fields are not options.
+  # `mkClasses`, `applyCoreMerge` and `applyCoreExtend` are positional and carry no row here.
   flake.testsError.door-refusals = {
-    # ── record doors: missing required field refused, extra field admitted ──
+    # ── record steps: missing required field refused, extra field admitted ──
     test-mkCoreRecord-missing-field-named = {
       expr = forced (mkCoreRecord {
         class = cls;
@@ -140,21 +134,6 @@ in
         projection = "p";
         sharedKeys = [ ];
         values = { };
-        extra = 1;
-      });
-      expected = true;
-    };
-
-    test-mkClasses-missing-field-named = {
-      expr = forced (mkClasses {
-        nodes.a = { };
-      });
-      expectedError = thrown "gen-class.mkClasses: required field 'keyOf' is missing (required: 'nodes', 'keyOf') (in prelude.checkRequired)";
-    };
-    test-mkClasses-extra-field-admitted = {
-      expr = admitted (mkClasses {
-        nodes.a = { };
-        keyOf = _: _: "k";
         extra = 1;
       });
       expected = true;
@@ -177,51 +156,12 @@ in
       expected = true;
     };
 
-    test-applyCoreMerge-missing-field-named = {
-      expr = forced (applyCoreMerge {
-        core = core1;
-      });
-      expectedError = thrown "gen-class.applyCoreMerge: required field 'memberProjection' is missing (required: 'core', 'memberProjection') (in prelude.checkRequired)";
-    };
-    test-applyCoreMerge-extra-field-admitted = {
-      expr = admitted (applyCoreMerge {
-        core = core1;
-        memberProjection = {
-          b = 2;
-        };
-        extra = 1;
-      });
-      expected = true;
-    };
-
-    test-applyCoreExtend-missing-field-named = {
-      expr = forced (applyCoreExtend {
-        core = core1;
-      });
-      expectedError = thrown "gen-class.applyCoreExtend: required field 'extend' is missing (required: 'core', 'extend') (in prelude.checkRequired)";
-    };
-    test-applyCoreExtend-extra-field-admitted = {
-      expr = admitted (applyCoreExtend {
-        core = core1;
-        extend = fakeArtifact.extendModules;
-        extra = 1;
-      });
-      expected = true;
-    };
-    test-applyCoreExtend-non-function-extend-named = {
-      expr = forced (applyCoreExtend {
-        core = core1;
-        extend = fakeArtifact;
-      });
-      expectedError = thrown "gen-class.applyCoreExtend: `extend` must be a function taking { modules } (e.g. an evaluation result's `extendModules`), not a set";
-    };
-
     test-invariantUnder-missing-field-named = {
       expr = forced (invariantUnder {
         projection = "p";
         projections = sharedProjections;
       });
-      expectedError = thrown "gen-class.invariantUnder: required field 'class' is missing (required: 'projection', 'projections', 'class') (in prelude.checkRequired)";
+      expectedError = thrown "gen-class.invariantUnder: required field 'class' is missing (required: 'class', 'projection', 'projections') (in prelude.checkRequired)";
     };
     test-invariantUnder-extra-field-admitted = {
       expr = admitted (invariantUnder {
@@ -234,82 +174,79 @@ in
     };
 
     test-gateCore-missing-field-named = {
-      expr = forced (gateCore {
-        core = core1;
-        candidate = {
-          a = 1;
-        };
-      });
-      expectedError = thrown "gen-class.gateCore: required field 'real' is missing (required: 'core', 'candidate', 'real') (in prelude.checkRequired)";
+      expr = forced (gateCore core1 { candidate.a = 1; });
+      expectedError = thrown "gen-class.gateCore: required field 'real' is missing (required: 'candidate', 'real') (in prelude.checkRequired)";
     };
     test-gateCore-extra-field-admitted = {
-      expr = admitted (gateCore {
-        core = core1;
-        candidate = {
-          a = 1;
-        };
-        real = {
-          a = 1;
-        };
-        extra = 1;
-      });
+      expr = admitted (
+        gateCore core1 {
+          candidate.a = 1;
+          real.a = 1;
+          extra = 1;
+        }
+      );
       expected = true;
+    };
+    # The old one-record shape: `core` handed where the core belongs is a record, so `isCore` refuses
+    # it by name once the pair step is applied.
+    test-gateCore-old-one-record-shape-named = {
+      expr = forced (
+        gateCore
+          {
+            core = core1;
+            candidate.a = 1;
+            real.a = 1;
+          }
+          {
+            candidate.a = 1;
+            real.a = 1;
+          }
+      );
+      expectedError = thrown "gen-class: gateCore: core must be a gen-class/core record";
     };
 
     test-compareCounters-missing-field-named = {
-      expr = forced (compareCounters {
-        expected = {
-          x = 1;
-        };
-        actual = {
-          x = 1;
-        };
-      });
-      expectedError = thrown "gen-class.compareCounters: required field 'mode' is missing (required: 'expected', 'actual', 'mode') (in prelude.checkRequired)";
+      expr = forced (compareCounters "exact" { expected.x = 1; });
+      expectedError = thrown "gen-class.compareCounters: required field 'actual' is missing (required: 'expected', 'actual') (in prelude.checkRequired)";
     };
     test-compareCounters-extra-field-admitted = {
-      expr = admitted (compareCounters {
-        expected = {
-          x = 1;
-        };
-        actual = {
-          x = 1;
-        };
-        mode = "exact";
-        extra = 1;
-      });
+      expr = admitted (
+        compareCounters "exact" {
+          expected.x = 1;
+          actual.x = 1;
+          extra = 1;
+        }
+      );
       expected = true;
     };
 
-    # ── mixed doors: missing required field AND unknown option both refused ──
-    test-mkClass-missing-field-named = {
-      expr = forced (mkClass {
-        key = "h";
-      });
-      expectedError = thrown "gen-class.mkClass: required field 'members' is missing (required: 'key', 'members') (in prelude.checkRequired)";
-    };
+    # ── options steps: unknown option refused; the old one-record shape refused by name ──
     test-mkClass-unknown-option-named = {
+      expr = forced (mkClass {
+        extra = 1;
+      });
+      expectedError = thrown "gen-class.mkClass: 'extra' is not an option of this door; the options are closed (accepted: 'archetype') (in prelude.checkOptions)";
+    };
+    test-mkClass-old-one-record-shape-named = {
       expr = forced (mkClass {
         key = "h";
         members = [ "a" ];
-        extra = 1;
       });
-      expectedError = thrown "gen-class.mkClass: 'extra' is not an option of this door; the options are closed (accepted: 'key', 'members', 'archetype') (in prelude.checkOptions)";
+      expectedError = thrown "gen-class.mkClass: 'key' is not an option of this door; the options are closed (accepted: 'archetype') (in prelude.checkOptions)";
     };
 
-    test-applyCoreFixed-missing-field-named = {
-      expr = forced (applyCoreFixed {
-        core = core1;
-      });
-      expectedError = thrown "gen-class.applyCoreFixed: required field 'modules' is missing (required: 'core', 'modules') (in prelude.checkRequired)";
-    };
     test-applyCoreFixed-unknown-option-named = {
+      expr = forced (applyCoreFixed {
+        extra = 1;
+      });
+      expectedError = thrown "gen-class.applyCoreFixed: 'extra' is not an option of this door; the options are closed (accepted: 'engineArgs') (in prelude.checkOptions)";
+    };
+    test-applyCoreFixed-old-one-record-shape-named = {
       expr = forced (applyCoreFixed {
         core = core1;
         modules = [ ];
-        extra = 1;
       });
-      expectedError = thrown "gen-class.applyCoreFixed: 'extra' is not an option of this door; the options are closed (accepted: 'core', 'modules', 'engineArgs') (in prelude.checkOptions)";
+      expectedError = thrown "gen-class.applyCoreFixed: 'core' is not an option of this door; the options are closed (accepted: 'engineArgs') (in prelude.checkOptions)";
     };
   };
 }

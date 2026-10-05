@@ -24,8 +24,6 @@ let
     all
     attrNames
     attrValues
-    checkOptions
-    checkRequired
     filter
     isAttrs
     isList
@@ -106,13 +104,28 @@ let
   # mkCore { class; projection; projections; } -> Core. projections = memberName -> attrs (the already-
   # extracted projection subtree per member; must cover class.members). The presence-guarded byte-
   # identical intersection, sorted; values = the archetype's projection restricted to sharedKeys.
-  # RECORD door (den-hoag-7gp66 P1, R5): all fields required, no `checkOptions` closing — an extra
-  # field is admitted; a missing one refuses BY NAME, catchably.
-  mkCore =
-    args:
+  # ONE KEYED RECORD, OPEN (den-hoag-7gp66 P2, rule 5 and the keyed-record ruling): `projections` is
+  # the subject, but `class` and `projection` are two configuration operands with no natural order,
+  # so the three stay one record whose fields are named at the call site. The record is a
+  # `prelude.door`: a missing field is refused by name and catchably at the application; an extra
+  # field is admitted (R5).
+  mkCore = prelude.door {
+    name = "gen-class.mkCore";
+    required = [
+      "class"
+      "projection"
+      "projections"
+    ];
+    open = true;
+  } mkCoreCore;
+  mkCoreCore =
+    {
+      class,
+      projection,
+      projections,
+      ...
+    }:
     let
-      checked = checkRequired "gen-class.mkCore" [ "class" "projection" "projections" ] args;
-      inherit (checked) class projection projections;
       inherit (oracle "mkCore" { inherit class projections; }) archProj agrees;
       sharedKeys = sort lessThan (filter agrees (attrNames archProj));
     in
@@ -123,7 +136,7 @@ let
       values = listToAttrs (map (k: nameValuePair k archProj.${k}) sharedKeys);
     };
 
-  # applyCoreMerge { core; memberProjection; } -> attrs — 7b's `shareClassProjection`, productized:
+  # applyCoreMerge core memberProjection -> attrs — 7b's `shareClassProjection`, productized:
   # `core.values // removeAttrs memberProjection core.sharedKeys`. The CORE OWNS sharedKeys: removeAttrs
   # strips the member's copies, core.values supplies them, so a member value at a shared key is
   # OVERRIDDEN by the core value (the axis-disjointness discipline manifesting — axis keys ∩
@@ -131,16 +144,12 @@ let
   # PROJECTION-ONLY LIMIT (spec §2.3): this returns the projection SUBTREE, not a deployable toplevel —
   # toplevel recovery FROM this spine-skipped path is tier-3/den-hoag (fenced), a DIFFERENT capability
   # from applyCoreExtend (which pays the full per-member re-eval to legitimately yield a toplevel).
-  # RECORD door (den-hoag-7gp66 P1, R5): all fields required, no `checkOptions` closing.
+  # POSITIONAL (den-hoag-7gp66 P2, rule 4): the core is configuration, first; the member projection it
+  # is applied to is the subject, last.
   applyCoreMerge =
-    args:
-    let
-      checked = checkRequired "gen-class.applyCoreMerge" [ "core" "memberProjection" ] args;
-      inherit (checked) core memberProjection;
-    in
-    core.values // removeAttrs memberProjection core.sharedKeys;
+    core: memberProjection: core.values // removeAttrs memberProjection core.sharedKeys;
 
-  # applyCoreExtend { core; extend; } -> artifact — the variant over a caller-supplied `extend` (the
+  # applyCoreExtend core extend -> artifact — the variant over a caller-supplied `extend` (the
   # A1 1.89× path). Places the core values, force-wrapped PER KEY, under the projection path; per-key
   # (not whole-subtree) so member axis keys under the same subtree survive. SPINE-TAX CAVEAT (spec
   # §2.3): the member re-runs evalModules — this path DOES yield a deployable toplevel, legitimately, by
@@ -152,13 +161,10 @@ let
   # core module is engine-neutral. Totality of `extend`: a non-function is refused by name, catchably;
   # a functor is admitted; its return is opaque; a pattern-formal `extend` lacking `modules` is Nix's
   # own abort.
-  # RECORD door (den-hoag-7gp66 P1, R5): all fields required, no `checkOptions` closing.
+  # POSITIONAL (den-hoag-7gp66 P2, rule 4): the core is configuration, first; the member's `extend`
+  # it is applied through is the subject, last.
   applyCoreExtend =
-    args:
-    let
-      checked = checkRequired "gen-class.applyCoreExtend" [ "core" "extend" ] args;
-      inherit (checked) core extend;
-    in
+    core: extend:
     if !(builtins.isFunction extend || (builtins.isAttrs extend && extend ? __functor)) then
       throw "gen-class.applyCoreExtend: `extend` must be a function taking { modules } (e.g. an evaluation result's `extendModules`), not a ${builtins.typeOf extend}"
     else
@@ -172,30 +178,34 @@ let
   # invariance probe (7b step 4 lifted). divergingKeys = the archetype keys that are NOT byte-identical
   # across all members (same presence+value guard as the oracle, complemented); invariant = none diverge.
   # Guards leaf projections one might naively assume shared (the system.path lesson).
-  # RECORD door (den-hoag-7gp66 P1, R5): all fields required, no `checkOptions` closing.
+  # ONE KEYED RECORD, OPEN (den-hoag-7gp66 P2, as `mkCore` above): `class` and `projection` are two
+  # configuration operands with no natural order beside the `projections` subject. The record is a
+  # `prelude.door`, whose check is forced at the application itself (P2 premise 5), so a bad record is
+  # refused at the door's own WHNF even though this body's return is an attrset literal.
   invariantUnder =
-    args:
-    let
-      checked = checkRequired "gen-class.invariantUnder" [
-        "projection"
-        "projections"
-        "class"
-      ] args;
-      inherit (checked) projection projections class;
-      inherit (oracle "invariantUnder" { inherit class projections; }) archProj agrees;
-      divergingKeys = sort lessThan (filter (k: !(agrees k)) (attrNames archProj));
-    in
-    # `seq checked` (den-hoag-7gp66 P1 lazy-doors fix): the return was a bare attrset literal, and
-    # `divergingKeys` never touches `checked.projection` (unused by this door's own body), so
-    # neither field of the return forced `checked` — `checkRequired` sat unread until a caller
-    # forced `.invariant`/`.divergingKeys`, admitting a bad record at the door's own application.
-    # Same idiom `applyCoreFixed` below already uses.
-    builtins.seq checked {
-      invariant = divergingKeys == [ ];
-      inherit divergingKeys;
-    };
+    prelude.door
+      {
+        name = "gen-class.invariantUnder";
+        required = [
+          "class"
+          "projection"
+          "projections"
+        ];
+        open = true;
+      }
+      (
+        { class, projections, ... }:
+        let
+          inherit (oracle "invariantUnder" { inherit class projections; }) archProj agrees;
+          divergingKeys = sort lessThan (filter (k: !(agrees k)) (attrNames archProj));
+        in
+        {
+          invariant = divergingKeys == [ ];
+          inherit divergingKeys;
+        }
+      );
 
-  # applyCoreFixed { core; modules; engineArgs ? {}; } -> evalModuleTree result — the TIER-2 path (spec
+  # applyCoreFixed { engineArgs ? {}; } core modules -> evalModuleTree result — the TIER-2 path (spec
   # §2.5). Runs the injected gen-merge kernel with `coreShortCircuit = true` and a `coreModule` that
   # supplies the core's projection value as a pre-merged `mkCoreValue` marker: where that marker is the
   # SOLE def at its loc, the engine returns `core.values` directly, skipping the discharge/fold/verify
@@ -212,36 +222,33 @@ let
   #     field-union (coreModule carries no `.type` to clobber it) while the marker stays the sole def.
   # A member module that ALSO *defines* (not just declares) the core loc is SAFE — the kernel falls
   # through to the full merge (byte-identical) — but forfeits the spine skip.
-  # MIXED door (den-hoag-7gp66 P1): core/modules required, engineArgs optional — composes
-  # `checkOptions` over `checkRequired` (§v1.2) rather than a native closed formal, so a missing
-  # field or an unknown option refuses BY NAME, catchably, ahead of the merge==null guard below.
+  # OPTIONS FIRST, then `core` and `modules` (den-hoag-7gp66 P2, rules 2 and 4): the one optional
+  # field leaves for a closed options set, a `prelude.door` refused by name and catchably at
+  # `applyCoreFixed opts`'s own WHNF, ahead of the merge==null guard below. The core is configuration;
+  # the module list it is evaluated with is the subject, last.
   applyCoreFixed =
-    args:
-    let
-      checked = checkOptions "gen-class.applyCoreFixed" [
-        "core"
-        "modules"
-        "engineArgs"
-      ] (checkRequired "gen-class.applyCoreFixed" [ "core" "modules" ] args);
-      inherit (checked) core modules;
-      engineArgs = checked.engineArgs or { };
-    in
-    # `checked` is a lazy binding: without forcing it here, the `merge == null` branch below would
-    # return without ever touching `core`/`modules`, and a caller's own option-shape mistake would
-    # be masked by the tier-2 guard message instead of refusing by name.
-    builtins.seq checked (
-      if merge == null then
-        throw "gen-class: applyCoreFixed: the tier-2 fixed-input path requires the injected gen-merge kernel, but `merge` is null. Import gen-class with `merge = <gen-merge>.lib` (README §tier-2); every tier-1 verb works without it."
-      else
+    prelude.door
+      {
+        name = "gen-class.applyCoreFixed";
+        optional = [ "engineArgs" ];
+      }
+      (
+        o: core: modules:
         let
-          path = splitOnDots core.projection;
-          coreModule = {
-            options = setAttrByPath path (merge.mkOption { });
-            config = setAttrByPath path (merge.mkCoreValue core.digest core.values);
-          };
+          engineArgs = o.engineArgs or { };
         in
-        merge.evalModuleTree (engineArgs // { coreShortCircuit = true; }) (modules ++ [ coreModule ])
-    );
+        if merge == null then
+          throw "gen-class: applyCoreFixed: the tier-2 fixed-input path requires the injected gen-merge kernel, but `merge` is null. Import gen-class with `merge = <gen-merge>.lib` (README §tier-2); every tier-1 verb works without it."
+        else
+          let
+            path = splitOnDots core.projection;
+            coreModule = {
+              options = setAttrByPath path (merge.mkOption { });
+              config = setAttrByPath path (merge.mkCoreValue core.digest core.values);
+            };
+          in
+          merge.evalModuleTree (engineArgs // { coreShortCircuit = true; }) (modules ++ [ coreModule ])
+      );
 in
 {
   inherit

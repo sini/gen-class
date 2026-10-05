@@ -21,14 +21,8 @@ let
   corpus = import ./_fixtures/corpus.nix { inherit lib; };
 
   # ── cores over the corpus (archetype = mkClass's deterministic default) ──
-  agentClass = mkClass {
-    key = "agent";
-    members = corpus.agents.members;
-  };
-  heteroClass = mkClass {
-    key = "host";
-    members = corpus.hetero.members;
-  };
+  agentClass = mkClass { } "agent" corpus.agents.members;
+  heteroClass = mkClass { } "host" corpus.hetero.members;
   agentCore = mkCore {
     class = agentClass;
     inherit (corpus.agents) projection projections;
@@ -42,12 +36,8 @@ let
   # oracle rebuilds the member byte-identically ⇒ digests match ⇒ gate true. Run over every member.
   gateMember =
     core: projections: m:
-    gateCore {
-      inherit core;
-      candidate = applyCoreMerge {
-        inherit core;
-        memberProjection = projections.${m};
-      };
+    gateCore core {
+      candidate = applyCoreMerge core (projections.${m});
       real = projections.${m};
     };
 
@@ -58,12 +48,8 @@ let
       opt00 = "CORRUPTED";
     };
   };
-  teethGate = gateCore {
-    core = corruptedAgentCore;
-    candidate = applyCoreMerge {
-      core = corruptedAgentCore;
-      memberProjection = corpus.agents.projections."agent-0";
-    };
+  teethGate = gateCore corruptedAgentCore {
+    candidate = applyCoreMerge corruptedAgentCore (corpus.agents.projections."agent-0");
     real = corpus.agents.projections."agent-0";
   };
 
@@ -72,67 +58,62 @@ let
   # projection, no reconstruction at all) — candidateDigest == realDigest trivially, but heteroCore's
   # sharedKeys never appear in the agent projection, so the supplied core never PARTICIPATED in
   # producing candidate. Pre-fix this still gated true (digest-only); post-fix it must gate false.
-  alienCoreGate = gateCore {
-    core = heteroCore;
+  alienCoreGate = gateCore heteroCore {
     candidate = corpus.agents.projections."agent-0";
     real = corpus.agents.projections."agent-0";
   };
   # GREEN TWIN: the HONEST agentCore over the same direct-identity shape (no applyCoreMerge either) —
   # agent-0's own copy of the shared keys already equals agentCore.values by construction (the oracle's
   # byte-identical intersection), so the correct core participates and the digest matches ⇒ gate true.
-  honestCoreGate = gateCore {
-    core = agentCore;
+  honestCoreGate = gateCore agentCore {
     candidate = corpus.agents.projections."agent-0";
     real = corpus.agents.projections."agent-0";
   };
 
   # ── compareCounters fixtures (the two-tier policy's pure half) ──
   # exact: identical ⇒ pass; off-by-one ⇒ fail (same-build determinism, no tolerance).
-  exactPass = compareCounters {
+  exactPass = compareCounters "exact" {
     expected = {
       nrPrimOpCalls = 100;
     };
     actual = {
       nrPrimOpCalls = 100;
     };
-    mode = "exact";
   };
-  exactOffByOne = compareCounters {
+  exactOffByOne = compareCounters "exact" {
     expected = {
       nrPrimOpCalls = 100;
     };
     actual = {
       nrPrimOpCalls = 101;
     };
-    mode = "exact";
   };
 
   # band: the Determinate-vs-CppNix −8-on-20M build drift (~4e-7 relative) is INSIDE ±0.1% ⇒ pass.
-  bandTinyDrift = compareCounters {
+  bandTinyDrift = compareCounters { band = 0.001; } {
     expected = {
       nrPrimOpCalls = 20000000;
     };
     actual = {
       nrPrimOpCalls = 19999992;
     }; # −8
-    mode = {
-      band = 0.001;
-    };
   };
   # band: a real 2× blowup (relative delta 1.0) is OUTSIDE the band ⇒ fail (the O(k²) regression).
-  bandRegression = compareCounters {
-    expected = {
-      nrPrimOpCalls = 1000000;
-    };
-    actual = {
-      nrPrimOpCalls = 2000000;
-    };
-    mode = {
-      band = 0.001;
-    };
-  };
+  bandRegression =
+    compareCounters
+      {
+        band = 0.001;
+      }
+      {
+        expected = {
+          nrPrimOpCalls = 1000000;
+        };
+        actual = {
+          nrPrimOpCalls = 2000000;
+        };
+      };
   # mixed: one counter drifts within band (pass), one doubles (fail) ⇒ overall fail; per-counter split.
-  bandMixed = compareCounters {
+  bandMixed = compareCounters { band = 0.001; } {
     expected = {
       a = 1000000;
       b = 500000;
@@ -140,9 +121,6 @@ let
     actual = {
       a = 999999; # −1, within band
       b = 1000000; # 2×, outside band
-    };
-    mode = {
-      band = 0.001;
     };
   };
 in

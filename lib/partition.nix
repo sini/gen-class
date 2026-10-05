@@ -27,7 +27,6 @@
 let
   inherit (prelude)
     attrNames
-    checkRequired
     map
     sort
     ;
@@ -40,18 +39,15 @@ let
     ;
   inherit (contract) mkClass;
 
-  # mkClasses { nodes; keyOf; } -> [Class]. Group node names by their key, one mkClass record per
-  # group, classes key-sorted, members sorted. `keyOf name node` MUST return a string (groupBy's
-  # contract — classKey semantics). Checked HERE, before groupBy sees it: groupBy's own type error on a
+  # mkClasses keyOf nodes -> [Class]. Group node names by their key, one mkClass record per group,
+  # classes key-sorted, members sorted. `keyOf name node` MUST return a string (groupBy's contract —
+  # classKey semantics). Checked HERE, before groupBy sees it: groupBy's own type error on a
   # non-string key escapes `tryEval`, where mkClass's refusal of the same caller mistake is a throw.
-  # RECORD door (den-hoag-7gp66 P1, R5): all fields required, no `checkOptions` closing — an extra
-  # field is admitted; a missing one refuses BY NAME, catchably, instead of Nix's own uncatchable
-  # "called without required argument".
+  # POSITIONAL (den-hoag-7gp66 P2, rule 4): `keyOf` is configuration and comes first, the `nodes` it
+  # partitions are the subject, last. Positional arity is structural, so no field check remains.
   mkClasses =
-    args:
+    keyOf: nodes:
     let
-      checked = checkRequired "gen-class.mkClasses" [ "nodes" "keyOf" ] args;
-      inherit (checked) nodes keyOf;
       keyAt =
         name:
         let
@@ -63,13 +59,7 @@ let
           throw "gen-class: mkClasses: keyOf must return a string (got ${typeOf key} for node ${toJSON name})";
       grouped = groupBy keyAt (attrNames nodes);
     in
-    map (
-      key:
-      mkClass {
-        inherit key;
-        members = sort lessThan grouped.${key};
-      }
-    ) (attrNames grouped);
+    map (key: mkClass { } key (sort lessThan grouped.${key})) (attrNames grouped);
 in
 {
   inherit mkClasses;

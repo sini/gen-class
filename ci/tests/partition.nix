@@ -33,7 +33,7 @@ let
     );
 
   # ── partition inputs ──
-  classes = mkClasses { inherit (corpus) nodes keyOf; };
+  classes = mkClasses corpus.keyOf corpus.nodes;
   classByKey = k: builtins.head (lib.filter (c: c.key == k) classes);
 
   # Same fleet, rebuilt from reversed name/value pairs ⇒ a different construction path, identical value
@@ -129,14 +129,13 @@ in
   flake.tests.partition = {
     # grouping correctness on a small inline fleet (keyOf reads the node value directly).
     test-grouping-basic = {
-      expr = map (c: { inherit (c) key members; }) (mkClasses {
-        nodes = {
+      expr = map (c: { inherit (c) key members; }) (
+        mkClasses (_: v: v) {
           x = "A";
           y = "B";
           z = "A";
-        };
-        keyOf = _: v: v;
-      });
+        }
+      );
       expected = [
         {
           key = "A";
@@ -198,14 +197,13 @@ in
     # the sort is real, not an artefact of pre-sorted input: names that group out-of-order come back sorted.
     test-members-sorted-nontrivial = {
       expr =
-        (builtins.head (mkClasses {
-          nodes = {
+        (builtins.head (
+          mkClasses (_: v: v) {
             zeta = "g";
             alpha = "g";
             mid = "g";
-          };
-          keyOf = _: v: v;
-        })).members;
+          }
+        )).members;
       expected = [
         "alpha"
         "mid"
@@ -225,23 +223,18 @@ in
 
     # determinism: a permuted-construction of the same fleet yields a byte-identical class list.
     test-permutation-determinism = {
-      expr =
-        mkClasses {
-          nodes = permutedNodes;
-          inherit (corpus) keyOf;
-        } == classes;
+      expr = mkClasses corpus.keyOf permutedNodes == classes;
       expected = true;
     };
     # keyOf may DERIVE a key (not just read one); grouping follows the derived key.
     test-derived-keyof = {
-      expr = map (c: c.key) (mkClasses {
-        nodes = {
+      expr = map (c: c.key) (
+        mkClasses (_: v: if v >= 10 then "big" else "small") {
           n1 = 10;
           n2 = 3;
           n3 = 20;
-        };
-        keyOf = _: v: if v >= 10 then "big" else "small";
-      });
+        }
+      );
       expected = [
         "big"
         "small"

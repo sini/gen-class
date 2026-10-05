@@ -33,10 +33,7 @@ let
   succeeds = e: (builtins.tryEval (builtins.deepSeq e null)).success;
 
   # ── the corpus core: 6 agents, projection "agent.opts", the 40-key byte-identical shared subtree ──
-  agentClass = mkClass {
-    key = "agent";
-    members = corpus.agents.members;
-  };
+  agentClass = mkClass { } "agent" corpus.agents.members;
   agentCore = mkCore {
     class = agentClass;
     inherit (corpus.agents) projection projections;
@@ -67,17 +64,12 @@ let
     options.axisKey = genMerge.mkOption { type = genMerge.anything; };
     config.axisKey = "member-axis";
   };
-  skipFixed =
-    (applyCoreFixed {
-      core = agentCore;
-      modules = [ axisMember ];
-    }).config;
+  skipFixed = (applyCoreFixed { } agentCore [ axisMember ]).config;
   skipRef = refConfig [
     axisMember
     (plainCoreModule agentCore)
   ];
-  skipGate = gateCore {
-    core = agentCore;
+  skipGate = gateCore agentCore {
     candidate = getProj skipFixed;
     real = getProj skipRef;
   };
@@ -93,11 +85,7 @@ let
   boomDecl = {
     options.agent.opts = genMerge.mkOption { type = boomType; };
   };
-  skipThroughBoom =
-    (applyCoreFixed {
-      core = agentCore;
-      modules = [ boomDecl ];
-    }).config;
+  skipThroughBoom = (applyCoreFixed { } agentCore [ boomDecl ]).config;
   offRunsSpine =
     didThrow
       (genMerge.evalModuleTree { coreShortCircuit = false; } [
@@ -112,17 +100,12 @@ let
       extraAxis = "axis-under-projection";
     };
   };
-  ftFixed =
-    (applyCoreFixed {
-      core = agentCore;
-      modules = [ ftMember ];
-    }).config;
+  ftFixed = (applyCoreFixed { } agentCore [ ftMember ]).config;
   ftRef = refConfig [
     ftMember
     (plainCoreModule agentCore)
   ];
-  ftGate = gateCore {
-    core = agentCore;
+  ftGate = gateCore agentCore {
     candidate = getProj ftFixed;
     real = getProj ftRef;
   };
@@ -136,14 +119,9 @@ let
       "opt00" = "TAMPERED";
     };
   };
-  wrongFixed =
-    (applyCoreFixed {
-      core = wrongCore;
-      modules = [ ];
-    }).config;
+  wrongFixed = (applyCoreFixed { } wrongCore [ ]).config;
   realConfig = refConfig [ (plainCoreModule agentCore) ];
-  wrongGate = gateCore {
-    core = wrongCore;
+  wrongGate = gateCore wrongCore {
     candidate = getProj wrongFixed;
     real = getProj realConfig;
   };
