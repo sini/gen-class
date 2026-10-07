@@ -29,6 +29,9 @@ let
     ;
 
   exactly = msg: "^" + prelude.escapeRegex msg + "$";
+  # gen-prelude's refusal text, composed with this library's own literal door, field and accepted
+  # set (den-hoag-7jltk): every assertion kept, none of gen-prelude's wording copied.
+  inherit (prelude) refusals;
   thrown = msg: {
     type = "ThrownError";
     msg = exactly msg;
@@ -126,7 +129,14 @@ in
         projection = "p";
         sharedKeys = [ ];
       });
-      expectedError = thrown "gen-class.mkCoreRecord: required field 'values' is missing (required: 'class', 'projection', 'sharedKeys', 'values') (in prelude.checkRequired)";
+      expectedError = thrown (
+        refusals.missingField "gen-class.mkCoreRecord" [
+          "class"
+          "projection"
+          "sharedKeys"
+          "values"
+        ] "values"
+      );
     };
     test-mkCoreRecord-extra-field-admitted = {
       expr = admitted (mkCoreRecord {
@@ -144,7 +154,9 @@ in
         class = cls;
         projection = "p";
       });
-      expectedError = thrown "gen-class.mkCore: required field 'projections' is missing (required: 'class', 'projection', 'projections') (in prelude.checkRequired)";
+      expectedError = thrown (
+        refusals.missingField "gen-class.mkCore" [ "class" "projection" "projections" ] "projections"
+      );
     };
     test-mkCore-extra-field-admitted = {
       expr = admitted (mkCore {
@@ -161,7 +173,9 @@ in
         projection = "p";
         projections = sharedProjections;
       });
-      expectedError = thrown "gen-class.invariantUnder: required field 'class' is missing (required: 'class', 'projection', 'projections') (in prelude.checkRequired)";
+      expectedError = thrown (
+        refusals.missingField "gen-class.invariantUnder" [ "class" "projection" "projections" ] "class"
+      );
     };
     test-invariantUnder-extra-field-admitted = {
       expr = admitted (invariantUnder {
@@ -175,7 +189,7 @@ in
 
     test-gateCore-missing-field-named = {
       expr = forced (gateCore core1 { candidate.a = 1; });
-      expectedError = thrown "gen-class.gateCore: required field 'real' is missing (required: 'candidate', 'real') (in prelude.checkRequired)";
+      expectedError = thrown (refusals.missingField "gen-class.gateCore" [ "candidate" "real" ] "real");
     };
     test-gateCore-extra-field-admitted = {
       expr = admitted (
@@ -207,7 +221,9 @@ in
 
     test-compareCounters-missing-field-named = {
       expr = forced (compareCounters "exact" { expected.x = 1; });
-      expectedError = thrown "gen-class.compareCounters: required field 'actual' is missing (required: 'expected', 'actual') (in prelude.checkRequired)";
+      expectedError = thrown (
+        refusals.missingField "gen-class.compareCounters" [ "expected" "actual" ] "actual"
+      );
     };
     test-compareCounters-extra-field-admitted = {
       expr = admitted (
@@ -225,28 +241,28 @@ in
       expr = forced (mkClass {
         extra = 1;
       });
-      expectedError = thrown "gen-class.mkClass: 'extra' is not an option of this door; the options are closed (accepted: 'archetype') (in prelude.checkOptions)";
+      expectedError = thrown (refusals.unknownOption "gen-class.mkClass" [ "archetype" ] "extra");
     };
     test-mkClass-old-one-record-shape-named = {
       expr = forced (mkClass {
         key = "h";
         members = [ "a" ];
       });
-      expectedError = thrown "gen-class.mkClass: 'key' is not an option of this door; the options are closed (accepted: 'archetype') (in prelude.checkOptions)";
+      expectedError = thrown (refusals.unknownOption "gen-class.mkClass" [ "archetype" ] "key");
     };
 
     test-applyCoreFixed-unknown-option-named = {
       expr = forced (applyCoreFixed {
         extra = 1;
       });
-      expectedError = thrown "gen-class.applyCoreFixed: 'extra' is not an option of this door; the options are closed (accepted: 'engineArgs') (in prelude.checkOptions)";
+      expectedError = thrown (refusals.unknownOption "gen-class.applyCoreFixed" [ "engineArgs" ] "extra");
     };
     test-applyCoreFixed-old-one-record-shape-named = {
       expr = forced (applyCoreFixed {
         core = core1;
         modules = [ ];
       });
-      expectedError = thrown "gen-class.applyCoreFixed: 'core' is not an option of this door; the options are closed (accepted: 'engineArgs') (in prelude.checkOptions)";
+      expectedError = thrown (refusals.unknownOption "gen-class.applyCoreFixed" [ "engineArgs" ] "core");
     };
   };
 }
