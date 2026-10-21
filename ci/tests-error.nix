@@ -37,6 +37,11 @@ let
     msg = exactly msg;
   };
   forced = x: builtins.deepSeq x x;
+  chain = n: leaf: if n == 0 then leaf else { __functor = _: chain (n - 1) leaf; };
+  bound = "a functor that reaches no function within 32 `__functor` steps";
+  extendRefusal =
+    kind:
+    "gen-class.applyCoreExtend: `extend` must be a function taking { modules } (e.g. an evaluation result's `extendModules`), not ${kind}";
   # `forced`'s positive twin: the call evaluates clean rather than aborting.
   admitted = v: (builtins.tryEval (builtins.deepSeq v v)).success;
 
@@ -122,6 +127,63 @@ in
   # one-record shape is refused by name at its first application: its fields are not options.
   # `mkClasses`, `applyCoreMerge` and `applyCoreExtend` are positional and carry no row here.
   flake.testsError.door-refusals = {
+    # ── applyCoreExtend's `extend` (den-hoag-b6nyh): admitted by what Nix can apply (gen-prelude
+    # `isApplicable`, the fuelled `__functor` walk), where carrying `__functor` admitted it before and
+    # the application then aborted. Refused by name, catchably; an exhausted walk names the bound.
+    test-applyCoreExtend-functor-returning-a-non-function-is-refused-by-name = {
+      expr = forced (applyCoreExtend core1 { __functor = _: 5; });
+      expectedError = thrown (extendRefusal "a set");
+    };
+    test-applyCoreExtend-functor-returning-a-non-function-is-catchable = {
+      expr = (builtins.tryEval (forced (applyCoreExtend core1 { __functor = _: 5; }))).success;
+      expected = false;
+    };
+    test-applyCoreExtend-non-function-functor-is-refused-by-name = {
+      expr = forced (applyCoreExtend core1 { __functor = 1; });
+      expectedError = thrown (extendRefusal "a set");
+    };
+    test-applyCoreExtend-self-returning-functor-is-refused-naming-the-bound = {
+      expr = forced (
+        applyCoreExtend core1 (
+          let
+            s = {
+              __functor = self: self;
+            };
+          in
+          s
+        )
+      );
+      expectedError = thrown (extendRefusal bound);
+    };
+    test-applyCoreExtend-33-level-functor-is-refused-naming-the-bound = {
+      expr = forced (applyCoreExtend core1 (chain 33 fakeArtifact.extendModules));
+      expectedError = thrown (extendRefusal bound);
+    };
+    # what Nix applies is served as its lambda: nested, a functor-valued `__functor`, 32 steps,
+    # stacked `setFunctionArgs` (nixpkgs' encoding, written out)
+    test-applyCoreExtend-applicable-functors-are-served-as-their-lambda =
+      let
+        leaf = fakeArtifact.extendModules;
+      in
+      {
+        expr = map (applyCoreExtend core1) [
+          { __functor = _: { __functor = _: leaf; }; }
+          {
+            __functor = {
+              __functor = _: _: leaf;
+            };
+          }
+          (chain 32 leaf)
+          {
+            __functor = _: {
+              __functor = _: leaf;
+              __functionArgs = { };
+            };
+            __functionArgs = { };
+          }
+        ];
+        expected = builtins.genList (_: applyCoreExtend core1 leaf) 4;
+      };
     # ── record steps: missing required field refused, extra field admitted ──
     test-mkCoreRecord-missing-field-named = {
       expr = forced (mkCoreRecord {

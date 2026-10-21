@@ -158,15 +158,16 @@ let
   # none (ADR-0027: the evaluator's location is the caller's). For a nixpkgs `evalModules` result the
   # caller hands its `extendModules` unwrapped, and this construct calls it with `{ modules }`. The
   # `mkForced` record is hand-built in the `_type = "override"` encoding gen-merge also reads, so the
-  # core module is engine-neutral. Totality of `extend`: a non-function is refused by name, catchably;
-  # a functor is admitted; its return is opaque; a pattern-formal `extend` lacking `modules` is Nix's
-  # own abort.
+  # core module is engine-neutral. Totality of `extend`: a value Nix cannot apply is refused by name,
+  # catchably (gen-prelude `isApplicable`, the fuelled `__functor` walk; carrying `__functor` is not
+  # it, den-hoag-b6nyh); an applicable functor is admitted; its return is opaque; a pattern-formal
+  # `extend` lacking `modules` is Nix's own abort.
   # POSITIONAL (den-hoag-7gp66 P2, rule 4): the core is configuration, first; the member's `extend`
   # it is applied through is the subject, last.
   applyCoreExtend =
     core: extend:
-    if !(builtins.isFunction extend || (builtins.isAttrs extend && extend ? __functor)) then
-      throw "gen-class.applyCoreExtend: `extend` must be a function taking { modules } (e.g. an evaluation result's `extendModules`), not a ${builtins.typeOf extend}"
+    if !(prelude.isApplicable extend) then
+      throw "gen-class.applyCoreExtend: `extend` must be a function taking { modules } (e.g. an evaluation result's `extendModules`), not ${prelude.applicableKindOf extend}"
     else
       extend {
         modules = [
