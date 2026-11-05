@@ -26,7 +26,7 @@ Design spec (authoritative on all semantics): `den-architecture/gen-specs/gen-cl
 
 ```
 gen-prelude → gen-class   (Class B: prelude required; merge injected for tier 2 only)
-gen-merge  ─(injected)─┘  (the tier-2 fixed-input kernel — a VALUE, never a flake input)
+gen-merge  ─(injected)─┘  (the tier-2 fixed-input kernel — a VALUE into ./lib, applied by the root flake)
 ```
 
 gen-class is a Class-B lib (deps injected per the gen convention): `prelude` is the sole required

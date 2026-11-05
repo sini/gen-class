@@ -419,9 +419,8 @@ in
   # The two entry paths are ONE library. `genClassWithMerge` is built from ci's flake inputs,
   # `dispatched` from the same `ci/flake.lock` read as data — so this compares the two suppliers of
   # one construction rather than an expression with itself, and NOT the root against `flake.lib`:
-  # under L3 the flake output is `import ./. { prelude = gen-prelude.lib; }`, partially applied, so
-  # ITS `merge` is the very same shim default this cell is exercising, and a cell built that way
-  # cannot fail. Raw `dispatched == genClassWithMerge` is not the alternative either — `./lib`'s
+  # the flake output applies both formals from the ROOT lock's inputs, which this ci flake does not
+  # read, so that comparison would cross pin sources rather than entry points. Raw `dispatched == genClassWithMerge` is not the alternative either — `./lib`'s
   # surface carries function-valued members, and Nix `==` THROWS rather than reading false the
   # moment it descends into comparing two functions. `attrNames` compares only the published SURFACE
   # SHAPE the two suppliers agree on, which is both comparable and the thing actually worth asserting

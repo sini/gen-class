@@ -4,8 +4,8 @@
     gen-prelude.url = "github:sini/gen-prelude";
     # The tier-2 fixed-input kernel (spec §2.5). gen-merge.lib self-wires its own prelude + gen-types
     # (gen-merge/flake.nix), so the ci consumes `gen-merge.lib` directly — no manual wiring. It enters
-    # ONLY here (a VALUE injected into `genClassWithMerge` + the apply-fixed fixtures); the library
-    # (../lib) never takes gen-merge as a flake input — the consumer injects it (flake.nix boundary).
+    # here as a VALUE injected into `genClassWithMerge` + the apply-fixed fixtures; the library
+    # (../lib) never takes gen-merge as a flake input — the root flake.nix applies it as a value.
     gen-merge.url = "github:sini/gen-merge";
     # nixpkgs is the CI runner's dependency (nix-unit harness, treefmt) and supplies the `lib` the
     # test modules use — plus `nixpkgsLib` for the fixture-assembly / applyCoreExtend equivalence
